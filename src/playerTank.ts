@@ -39,8 +39,8 @@ export class PlayerTank implements Vehicle {
     
     // Physics body will be created when the tank is added to the world
     // For now, just initialize properties
-    this.speed = 30;  // Moderate speed for better control
-    this.turnSpeed = 12;  // Significantly increased turn speed for faster rotation
+    this.speed = 150;  // Increased from 30 for stronger movement force
+    this.turnSpeed = 20;  // Increased from 12 for faster rotation
     this.canFire = true;
     this.lastFired = 0;
     
@@ -67,6 +67,9 @@ export class PlayerTank implements Vehicle {
   move(direction: number): void {
     if (!this.body) return;
     
+    // Ensure the body is awake
+    this.body.wakeUp();
+    
     // Get current rotation to determine forward direction
     const rotation = this.body.rotation();
     
@@ -82,13 +85,16 @@ export class PlayerTank implements Vehicle {
     
     // Apply impulse for immediate movement
     this.body.applyImpulse(
-      { x: forward.x, y: forward.y, z: forward.z },
+      { x: forward.x, y: 0, z: forward.z }, // Lock Y component to prevent jumping
       true
     );
   }
 
   turn(direction: number): void {
     if (!this.body) return;
+    
+    // Ensure the body is awake
+    this.body.wakeUp();
     
     // Apply torque for rotation (around Y axis)
     const torque = { x: 0, y: direction * this.turnSpeed, z: 0 };

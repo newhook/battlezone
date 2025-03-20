@@ -58,8 +58,8 @@ export function createVehicleBody(
   // Create rigid body description
   const rigidBodyDesc = RAPIER.RigidBodyDesc.dynamic()
     .setTranslation(0, size.height / 2, 0)
-    .setLinearDamping(0.5)
-    .setAngularDamping(0.5);
+    .setLinearDamping(0.1)  // Reduced from 0.5
+    .setAngularDamping(0.2); // Reduced from 0.5
   
   const body = world.createRigidBody(rigidBodyDesc);
   
@@ -72,8 +72,8 @@ export function createVehicleBody(
   
   // Set mass properties
   colliderDesc.setDensity(mass / (size.width * size.height * size.depth));
-  colliderDesc.setFriction(0.5);
-  colliderDesc.setRestitution(0.2);
+  colliderDesc.setFriction(0.7);    // Increased from 0.5 for better grip
+  colliderDesc.setRestitution(0.1); // Reduced from 0.2 for less bouncing
   
   // Attach collider to body
   world.createCollider(colliderDesc, body);

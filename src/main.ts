@@ -8,15 +8,7 @@ import { FlyCamera } from './flyCamera';
 async function init() {
   try {
     console.log('Init function starting');
-    // Show loading message
     const loadingElement = document.getElementById('loading');
-    if (loadingElement) {
-      loadingElement.textContent = 'Initializing Rapier physics engine...';
-    }
-    
-    if (loadingElement) {
-      loadingElement.textContent = 'Setting up game world...';
-    }
     
     // Initialize the scene
     const { scene, camera, renderer, clock } = initScene();
