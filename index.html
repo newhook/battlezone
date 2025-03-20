@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Battlezone</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #000000;
+        }
+        canvas {
+            display: block;
+        }
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #00ff00;
+            font-family: monospace;
+            font-size: 24px;
+            text-align: center;
+        }
+        #instructions {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            color: #00ff00;
+            font-family: monospace;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            border: 1px solid #00ff00;
+        }
+        #score {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            color: #00ff00;
+            font-family: monospace;
+            font-size: 24px;
+        }
+        
+        #fps {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #00ff00;
+            font-family: monospace;
+            font-size: 16px;
+            background-color: rgba(0, 0, 0, 0.3);
+            padding: 5px;
+        }
+    </style>
+    
+</head>
+<body>
+    <div id="loading">Loading Battlezone...</div>
+    <div id="score">SCORE: 0</div>
+    <div id="fps">FPS: 0</div>
+    <div id="instructions">
+        <h3>CONTROLS:</h3>
+        <p>W/↑: Move Forward</p>
+        <p>S/↓: Move Backward</p>
+        <p>A/←: Turn Left</p>
+        <p>D/→: Turn Right</p>
+        <p>SPACE: Fire / Move Up (in Fly Mode)</p>
+        <p>SHIFT: Move Down (in Fly Mode)</p>
+        <p>F: Toggle Fly Camera</p>
+        <p>SHIFT+W: Toggle Wireframe Mode</p>
+    </div>
+    
+    <!-- Test if scripts are loading at all -->
+    <script>
+        console.log("Inline script executed");
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log("DOMContentLoaded from inline script");
+        });
+    </script>
+    
+    <!-- Load the main entry point -->
+    <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
