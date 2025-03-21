@@ -9,7 +9,7 @@ export function setupInputHandlers(): InputState {
     right: false,
     fire: false,
     toggleFlyCamera: false,
-    down: false
+    wireframeToggle: false
   };
   
   // Key down handler
@@ -19,6 +19,8 @@ export function setupInputHandlers(): InputState {
         input.wireframeToggle = !input.wireframeToggle;
         break;
       case 'KeyW':
+          input.forward = true;
+        break;
       case 'ArrowUp':
         input.forward = true;
         break;
@@ -40,10 +42,6 @@ export function setupInputHandlers(): InputState {
       case 'KeyF':
         // Toggle fly camera on keydown, not continuous press
         input.toggleFlyCamera = !input.toggleFlyCamera;
-        break;
-      case 'ShiftLeft':
-      case 'ShiftRight':
-        input.down = true;
         break;
     }
   };
@@ -69,10 +67,6 @@ export function setupInputHandlers(): InputState {
         break;
       case 'Space':
         input.fire = false;
-        break;
-      case 'ShiftLeft':
-      case 'ShiftRight':
-        input.down = false;
         break;
       // We don't reset toggleFlyCamera on keyup as it's a toggle state
     }

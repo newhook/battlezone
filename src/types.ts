@@ -41,7 +41,6 @@ export interface InputState {
   right: boolean;
   fire: boolean;
   toggleFlyCamera: boolean;
-  down: boolean;
   wireframeToggle: boolean;
 }
 

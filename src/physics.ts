@@ -87,10 +87,6 @@ export function createObstacleBody(
   world: RAPIER.World,
   mass: number = 0
 ): RAPIER.RigidBody {
-  if (!RAPIER) {
-    throw new Error('Rapier not initialized. Please call initPhysics() first.');
-  }
-
   // Create appropriate rigid body based on mass
   const rigidBodyDesc = mass === 0 
     ? RAPIER.RigidBodyDesc.fixed()
@@ -99,7 +95,7 @@ export function createObstacleBody(
   // Set position
   rigidBodyDesc.setTranslation(
     position.x, 
-    position.y + (size.height / 2), 
+    position.y, // Don't add half height - this is now handled correctly in gameObjects.ts
     position.z
   );
   
@@ -116,8 +112,12 @@ export function createObstacleBody(
     colliderDesc.setDensity(mass / (size.width * size.height * size.depth));
   }
   
-  colliderDesc.setFriction(0.5);
-  colliderDesc.setRestitution(0.3);
+  // Increase friction and make sure there's no bounce for obstacles
+  colliderDesc.setFriction(1.0);
+  colliderDesc.setRestitution(0.0);
+  
+  // Add some contact force events for debugging if needed
+  colliderDesc.setActiveEvents(RAPIER.ActiveEvents.CONTACT_FORCE_EVENTS);
   
   // Attach collider to body
   world.createCollider(colliderDesc, body);

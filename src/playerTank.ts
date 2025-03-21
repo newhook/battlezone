@@ -104,14 +104,21 @@ export class PlayerTank implements Vehicle {
   fire(): void {
     if (!this.canFire) return;
     
+    console.log("Fire method called!"); // Debug logging
+    
     // Get the position and rotation of the tank cannon
     const cannonTip = new THREE.Vector3(0, 0, 2);
     cannonTip.applyQuaternion(this.mesh.quaternion);
     cannonTip.add(this.mesh.position);
     
     // Create projectile mesh
-    const projectileGeometry = new THREE.SphereGeometry(0.2, 8, 8);
-    const projectileMaterial = new THREE.MeshStandardMaterial({ color: 0xffff00, wireframe: true });
+    const projectileGeometry = new THREE.SphereGeometry(0.5, 16, 16); // Larger and more detailed
+    const projectileMaterial = new THREE.MeshStandardMaterial({ 
+      color: 0xffff00, 
+      wireframe: false,
+      emissive: 0xffff00,
+      emissiveIntensity: 0.5
+    });
     const projectileMesh = new THREE.Mesh(projectileGeometry, projectileMaterial);
     projectileMesh.position.copy(cannonTip);
     
@@ -120,69 +127,79 @@ export class PlayerTank implements Vehicle {
     if (scene && window.physicsWorld) {
       const world = window.physicsWorld.world;
       
-      // Create rigid body for projectile
-      const RAPIER_MODULE = (RAPIER as any)._module;
-      const rigidBodyDesc = RAPIER_MODULE.RigidBodyDesc.dynamic()
-        .setTranslation(cannonTip.x, cannonTip.y, cannonTip.z);
-      
-      const projectileBody = world.createRigidBody(rigidBodyDesc);
-      
-      // Create collider
-      const colliderDesc = RAPIER_MODULE.ColliderDesc.ball(0.2);
-      colliderDesc.setDensity(2.0);  // Dense projectile
-      colliderDesc.setRestitution(0.6);  // Bouncy
-      
-      world.createCollider(colliderDesc, projectileBody);
-      
-      // Link mesh to physics body
-      projectileBody.userData = { mesh: projectileMesh };
-      
-      // Apply velocity in the direction the tank is facing
-      const forward = new THREE.Vector3(0, 0, 1);
-      forward.applyQuaternion(this.mesh.quaternion);
-      forward.multiplyScalar(50); // Fast projectile speed
-      
-      // Add tank's velocity to projectile velocity
-      if (this.body) {
-        const tankVel = this.body.linvel();
-        forward.add(new THREE.Vector3(tankVel.x, tankVel.y, tankVel.z));
-      }
-      
-      // Set linear velocity of projectile
-      projectileBody.setLinvel({ x: forward.x, y: forward.y, z: forward.z }, true);
-      
-      scene.add(projectileMesh);
-      window.physicsWorld.addBody(projectileBody);
-      
-      // Add projectile to game objects
-      if (window.gameState) {
-        const projectile: GameObject = {
-          mesh: projectileMesh,
-          body: projectileBody,
-          update: () => {
-            // Physics world will update the mesh position
-          }
-        };
+      try {
+        // Create rigid body for projectile - simplified approach
+        const rigidBodyDesc = RAPIER.RigidBodyDesc.dynamic()
+          .setTranslation(cannonTip.x, cannonTip.y, cannonTip.z);
         
-        window.gameState.projectiles.push(projectile);
+        const projectileBody = world.createRigidBody(rigidBodyDesc);
         
-        // Destroy projectile after 3 seconds
-        setTimeout(() => {
-          if (scene && projectileMesh) {
-            scene.remove(projectileMesh);
-          }
-          
-          if (window.physicsWorld && projectileBody) {
-            window.physicsWorld.removeBody(projectileBody);
-          }
-          
-          if (window.gameState) {
-            const index = window.gameState.projectiles.indexOf(projectile);
-            if (index !== -1) {
-              window.gameState.projectiles.splice(index, 1);
+        // Create collider
+        const colliderDesc = RAPIER.ColliderDesc.ball(0.5); // Match visual size
+        colliderDesc.setDensity(2.0);
+        colliderDesc.setRestitution(0.7);
+        colliderDesc.setFriction(0.0); // No friction for projectiles
+        
+        world.createCollider(colliderDesc, projectileBody);
+        
+        // Link mesh to physics body
+        projectileBody.userData = { mesh: projectileMesh };
+        
+        // Apply velocity in the direction the tank is facing
+        const forward = new THREE.Vector3(0, 0, 1);
+        forward.applyQuaternion(this.mesh.quaternion);
+        forward.multiplyScalar(80); // Increased projectile speed
+        
+        // Add tank's velocity to projectile velocity
+        if (this.body) {
+          const tankVel = this.body.linvel();
+          forward.add(new THREE.Vector3(tankVel.x, tankVel.y, tankVel.z));
+        }
+        
+        // Set linear velocity of projectile
+        projectileBody.setLinvel({ x: forward.x, y: forward.y, z: forward.z }, true);
+        
+        // Ensure the projectile is awake
+        projectileBody.wakeUp();
+        
+        // Add to scene
+        scene.add(projectileMesh);
+        window.physicsWorld.addBody(projectileBody);
+        
+        console.log("Projectile created and added to scene"); // Debug
+        
+        // Add projectile to game objects
+        if (window.gameState) {
+          const projectile: GameObject = {
+            mesh: projectileMesh,
+            body: projectileBody,
+            update: () => {
+              // Physics world will update the mesh position
             }
-          }
-        }, 3000);
+          };
+          
+          window.gameState.projectiles.push(projectile);
+          
+          // Destroy projectile after 3 seconds
+          setTimeout(() => {
+            if (scene && projectileMesh.parent) {
+              scene.remove(projectileMesh);
+            }
+            
+            if (window.physicsWorld && projectileBody) {
+              window.physicsWorld.removeBody(projectileBody);
+            }
+            
+            if (window.gameState) {
+              const index = window.gameState.projectiles.indexOf(projectile);
+              if (index !== -1) {
+                window.gameState.projectiles.splice(index, 1);
+              }
+            }
+          }, 3000);
+        }
+      } catch (error) {
+        console.error("Error creating projectile:", error);
       }
     }
     

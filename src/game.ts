@@ -63,23 +63,11 @@ export function setupGame(scene: THREE.Scene): { gameState: GameState, physicsWo
   terrain.forEach(obj => {
     scene.add(obj.mesh);
     
-    // Create obstacle physics body and link to mesh
-    const size = {
-      width: obj.mesh.scale.x,
-      height: obj.mesh.scale.y,
-      depth: obj.mesh.scale.z
-    };
-    
-    const position = {
-      x: obj.mesh.position.x,
-      y: obj.mesh.position.y,
-      z: obj.mesh.position.z
-    };
-    
-    // Create physics body for obstacle
-    obj.body = createObstacleBody(size, position, physicsWorld.world, 0);
-    obj.body.userData = { mesh: obj.mesh };
-    physicsWorld.addBody(obj.body);
+    // We don't need to create physics bodies here since they're already created in createTerrain
+    // Just add the existing body to the physics world
+    if (obj.body) {
+      physicsWorld.addBody(obj.body);
+    }
   });
   
   // Create boundary walls (expanded to 1000 x 1000)
@@ -151,7 +139,33 @@ export function updateGame(gameState: GameState, input: InputState, physicsWorld
   if (input.right) {
     gameState.player.turn(-1);
   }
+  
+  // Handle firing with debug info
   if (input.fire) {
+    console.log("Fire button pressed, canFire =", gameState.player.canFire);
+    
+    // Visual feedback when trying to fire
+    const feedbackDiv = document.createElement('div');
+    feedbackDiv.textContent = gameState.player.canFire ? "FIRING!" : "COOLING DOWN...";
+    feedbackDiv.style.position = 'absolute';
+    feedbackDiv.style.top = '180px';
+    feedbackDiv.style.left = '10px';
+    feedbackDiv.style.color = gameState.player.canFire ? '#ffff00' : '#ff6600';
+    feedbackDiv.style.fontFamily = 'monospace';
+    feedbackDiv.style.fontSize = '16px';
+    feedbackDiv.style.padding = '5px';
+    feedbackDiv.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+    feedbackDiv.style.border = '1px solid #00ff00';
+    feedbackDiv.style.transition = 'opacity 0.5s ease-in-out';
+    feedbackDiv.style.opacity = '1';
+    document.body.appendChild(feedbackDiv);
+    
+    // Remove after a short time
+    setTimeout(() => {
+      feedbackDiv.style.opacity = '0';
+      setTimeout(() => document.body.removeChild(feedbackDiv), 500);
+    }, 1000);
+    
     gameState.player.fire();
   }
   

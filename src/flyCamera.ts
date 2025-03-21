@@ -136,9 +136,6 @@ export class FlyCamera {
     if (input.fire) { // Use spacebar to move up
       this.camera.position.addScaledVector(up, movementSpeed);
     }
-    if (input.down) { // Use shift or another key to move down
-      this.camera.position.addScaledVector(up, -movementSpeed);
-    }
   }
   
   // Method to reset camera to its original position when leaving fly mode

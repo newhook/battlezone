@@ -25,10 +25,13 @@ export function createTerrain(positions: THREE.Vector3[], world: RAPIER.World): 
       const depth = size * (0.8 + Math.random() * 0.4);
       
       geometry = new THREE.BoxGeometry(width, height, depth);
+      
+      // Create the box collider
       body = createObstacleBody(
         { width, height, depth },
         { x: position.x, y: position.y, z: position.z },
         world,
+        0 // Zero mass for static obstacle
       );
     } else {
       // Cylinder
@@ -36,15 +39,16 @@ export function createTerrain(positions: THREE.Vector3[], world: RAPIER.World): 
       const height = size * (0.8 + Math.random() * 0.4);
       geometry = new THREE.CylinderGeometry(radius, radius, height, 16); // Increased segments for smoother look
       
-      // For simplicity, use a box body for the cylinder with matching dimensions
+      // For cylinders, use a cylinder collider (approximated as a box for now)
       body = createObstacleBody(
         { width: radius * 2, height: height, depth: radius * 2 },
         { x: position.x, y: position.y, z: position.z },
-        world
+        world,
+        0 // Zero mass for static obstacle
       );
     }
     
-    // Random rotation for variety
+    // Random rotation for variety - only for visual mesh, not physics
     const rotation = Math.random() * Math.PI * 2;
     
     // Random color from the palette
@@ -59,6 +63,11 @@ export function createTerrain(positions: THREE.Vector3[], world: RAPIER.World): 
     const mesh = new THREE.Mesh(geometry, material);
     mesh.position.copy(position);
     mesh.rotation.y = rotation;
+    
+    // Link the mesh to the physics body for debugging
+    if (body) {
+      body.userData = { mesh }; 
+    }
     
     // Create terrain object
     const terrainBlock: GameObject = {
