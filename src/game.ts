@@ -53,8 +53,9 @@ export function setupGame(scene: THREE.Scene): { gameState: GameState, physicsWo
       z = (Math.random() * 980) - 490; // Range from -490 to 490
     } while (Math.sqrt(x*x + z*z) < 20); // Keep at least 20 units away from origin
     
-    // Random height between 2 and 6
-    const y = 2 + Math.random() * 4; 
+    // Set Y position to half the obstacle height to place it on the ground
+    // We'll adjust this in createTerrain to ensure the bottom of the object is at ground level
+    const y = 0; 
     
     terrainPositions.push(new THREE.Vector3(x, y, z));
   }

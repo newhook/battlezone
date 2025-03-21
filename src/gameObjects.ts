@@ -16,12 +16,13 @@ export function createTerrain(positions: THREE.Vector3[], world: RAPIER.World): 
     
     // Random shape - either box or cylinder
     let geometry, body;
+    let height: number;
     const shapeType = Math.random() > 0.7 ? 'cylinder' : 'box';
     
     if (shapeType === 'box') {
       // Box with slightly random proportions
       const width = size * (0.8 + Math.random() * 0.4);
-      const height = size * (0.8 + Math.random() * 0.4);
+      height = size * (0.8 + Math.random() * 0.4);
       const depth = size * (0.8 + Math.random() * 0.4);
       
       geometry = new THREE.BoxGeometry(width, height, depth);
@@ -29,20 +30,22 @@ export function createTerrain(positions: THREE.Vector3[], world: RAPIER.World): 
       // Create the box collider
       body = createObstacleBody(
         { width, height, depth },
-        { x: position.x, y: position.y, z: position.z },
+        // Position the obstacle so its bottom is at ground level (y=0)
+        { x: position.x, y: height / 2, z: position.z },
         world,
         0 // Zero mass for static obstacle
       );
     } else {
       // Cylinder
       const radius = size / 2;
-      const height = size * (0.8 + Math.random() * 0.4);
+      height = size * (0.8 + Math.random() * 0.4);
       geometry = new THREE.CylinderGeometry(radius, radius, height, 16); // Increased segments for smoother look
       
       // For cylinders, use a cylinder collider (approximated as a box for now)
       body = createObstacleBody(
         { width: radius * 2, height: height, depth: radius * 2 },
-        { x: position.x, y: position.y, z: position.z },
+        // Position the obstacle so its bottom is at ground level (y=0)
+        { x: position.x, y: height / 2, z: position.z },
         world,
         0 // Zero mass for static obstacle
       );
@@ -61,7 +64,10 @@ export function createTerrain(positions: THREE.Vector3[], world: RAPIER.World): 
     });
     
     const mesh = new THREE.Mesh(geometry, material);
-    mesh.position.copy(position);
+    
+    // Position the visual mesh to match the physics body position
+    // We set the physics body's y to height/2 above, so we need to do the same here
+    mesh.position.set(position.x, height / 2, position.z);
     mesh.rotation.y = rotation;
     
     // Link the mesh to the physics body for debugging
