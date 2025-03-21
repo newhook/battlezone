@@ -20,19 +20,31 @@ export class PlayerTank implements Vehicle {
     });
     this.mesh = new THREE.Mesh(tankGeometry, tankMaterial);
     
+    // Create a container for the turret to help with rotations
+    const turretContainer = new THREE.Object3D();
+    turretContainer.position.set(0, 0.375, 0); // Position on top of tank body
+    this.mesh.add(turretContainer);
+    
     // Tank turret
     const turretGeometry = new THREE.CylinderGeometry(0.5, 0.5, 0.5, 8);
     const turretMesh = new THREE.Mesh(turretGeometry, tankMaterial);
-    turretMesh.position.set(0, 0.5, 0);
-    turretMesh.rotation.x = Math.PI / 2;
-    this.mesh.add(turretMesh);
+    // Don't rotate the turret itself, only position it
+    turretMesh.position.set(0, 0.25, 0); // Half the height of the turret
+    turretContainer.add(turretMesh);
     
     // Tank cannon
     const cannonGeometry = new THREE.CylinderGeometry(0.1, 0.1, 2, 8);
-    const cannonMesh = new THREE.Mesh(cannonGeometry, tankMaterial);
-    cannonMesh.position.set(0, 0, 1.2);
+    const cannonMaterial = new THREE.MeshStandardMaterial({
+      color: 0x008800, // Slightly darker green for contrast
+      wireframe: false
+    });
+    const cannonMesh = new THREE.Mesh(cannonGeometry, cannonMaterial);
+    
+    // Properly position and rotate the cannon
+    cannonMesh.position.set(0, 0, 1.0); // Position forward of the turret
+    // Rotate to point forward (cylinders by default are along the Y axis)
     cannonMesh.rotation.x = Math.PI / 2;
-    turretMesh.add(cannonMesh);
+    turretContainer.add(cannonMesh);
     
     // Set initial position
     this.mesh.position.copy(position);
@@ -106,21 +118,57 @@ export class PlayerTank implements Vehicle {
     
     console.log("Fire method called!"); // Debug logging
     
-    // Get the position and rotation of the tank cannon
-    const cannonTip = new THREE.Vector3(0, 0, 2);
-    cannonTip.applyQuaternion(this.mesh.quaternion);
-    cannonTip.add(this.mesh.position);
+    // Find the turret container and cannon more reliably
+    const turretContainer = this.mesh.children[0];
+    if (!turretContainer) {
+      console.error("Could not find turret container");
+      return;
+    }
     
-    // Create projectile mesh
-    const projectileGeometry = new THREE.SphereGeometry(0.5, 16, 16); // Larger and more detailed
+    // Find the cannon mesh within the turret container
+    let cannon = null;
+    turretContainer.traverse(child => {
+      if (child instanceof THREE.Mesh && 
+          child.geometry instanceof THREE.CylinderGeometry && 
+          child.geometry.parameters.radiusTop === 0.1) {
+        cannon = child;
+      }
+    });
+    
+    if (!cannon) {
+      console.error("Could not find cannon for firing");
+      return;
+    }
+    
+    // Calculate the cannon tip position in world space
+    const cannonWorldPosition = new THREE.Vector3();
+    cannon.getWorldPosition(cannonWorldPosition);
+    
+    // Calculate a position at the tip of the cannon
+    const forward = new THREE.Vector3(0, 0, 1);
+    forward.applyQuaternion(this.mesh.quaternion);
+    forward.normalize();
+    
+    // Position the projectile at the tip of the cannon (a bit in front)
+    const cannonTip = cannonWorldPosition.clone().add(forward.clone().multiplyScalar(1.5));
+    
+    console.log("Cannon tip position:", cannonTip);
+    
+    // Create projectile mesh with bright, glowing material
+    const projectileGeometry = new THREE.SphereGeometry(0.5, 16, 16);
     const projectileMaterial = new THREE.MeshStandardMaterial({ 
       color: 0xffff00, 
       wireframe: false,
       emissive: 0xffff00,
-      emissiveIntensity: 0.5
+      emissiveIntensity: 0.8
     });
     const projectileMesh = new THREE.Mesh(projectileGeometry, projectileMaterial);
     projectileMesh.position.copy(cannonTip);
+    
+    // Add a point light to the projectile to make it glow
+    const projectileLight = new THREE.PointLight(0xffff00, 1, 10);
+    projectileLight.position.set(0, 0, 0);
+    projectileMesh.add(projectileLight);
     
     // Create projectile physics body
     const scene = this.mesh.parent;
@@ -128,17 +176,19 @@ export class PlayerTank implements Vehicle {
       const world = window.physicsWorld.world;
       
       try {
-        // Create rigid body for projectile - simplified approach
+        // Create rigid body for projectile
         const rigidBodyDesc = RAPIER.RigidBodyDesc.dynamic()
-          .setTranslation(cannonTip.x, cannonTip.y, cannonTip.z);
+          .setTranslation(cannonTip.x, cannonTip.y, cannonTip.z)
+          .setLinearDamping(0.0) // No drag on projectiles
+          .setAngularDamping(0.0); // No angular drag
         
         const projectileBody = world.createRigidBody(rigidBodyDesc);
         
-        // Create collider
-        const colliderDesc = RAPIER.ColliderDesc.ball(0.5); // Match visual size
-        colliderDesc.setDensity(2.0);
-        colliderDesc.setRestitution(0.7);
-        colliderDesc.setFriction(0.0); // No friction for projectiles
+        // Create collider (slightly smaller than visual size for better gameplay)
+        const colliderDesc = RAPIER.ColliderDesc.ball(0.4);
+        colliderDesc.setDensity(1.0);
+        colliderDesc.setRestitution(0.5);
+        colliderDesc.setFriction(0.0);
         
         world.createCollider(colliderDesc, projectileBody);
         
@@ -146,9 +196,8 @@ export class PlayerTank implements Vehicle {
         projectileBody.userData = { mesh: projectileMesh };
         
         // Apply velocity in the direction the tank is facing
-        const forward = new THREE.Vector3(0, 0, 1);
-        forward.applyQuaternion(this.mesh.quaternion);
-        forward.multiplyScalar(80); // Increased projectile speed
+        const projectileSpeed = 100; // Increased speed
+        forward.multiplyScalar(projectileSpeed); 
         
         // Add tank's velocity to projectile velocity
         if (this.body) {
@@ -158,45 +207,45 @@ export class PlayerTank implements Vehicle {
         
         // Set linear velocity of projectile
         projectileBody.setLinvel({ x: forward.x, y: forward.y, z: forward.z }, true);
-        
-        // Ensure the projectile is awake
         projectileBody.wakeUp();
         
         // Add to scene
         scene.add(projectileMesh);
         window.physicsWorld.addBody(projectileBody);
         
-        console.log("Projectile created and added to scene"); // Debug
+        console.log("Projectile created at position:", cannonTip, "with velocity:", forward);
         
         // Add projectile to game objects
         if (window.gameState) {
           const projectile: GameObject = {
             mesh: projectileMesh,
             body: projectileBody,
-            update: () => {
-              // Physics world will update the mesh position
-            }
+            update: () => {} // Physics world handles updates
           };
           
           window.gameState.projectiles.push(projectile);
           
-          // Destroy projectile after 3 seconds
+          // Destroy projectile after 5 seconds
           setTimeout(() => {
-            if (scene && projectileMesh.parent) {
-              scene.remove(projectileMesh);
-            }
-            
-            if (window.physicsWorld && projectileBody) {
-              window.physicsWorld.removeBody(projectileBody);
-            }
-            
-            if (window.gameState) {
-              const index = window.gameState.projectiles.indexOf(projectile);
-              if (index !== -1) {
-                window.gameState.projectiles.splice(index, 1);
+            try {
+              if (scene && projectileMesh.parent) {
+                scene.remove(projectileMesh);
               }
+              
+              if (window.physicsWorld && projectileBody) {
+                window.physicsWorld.removeBody(projectileBody);
+              }
+              
+              if (window.gameState) {
+                const index = window.gameState.projectiles.indexOf(projectile);
+                if (index !== -1) {
+                  window.gameState.projectiles.splice(index, 1);
+                }
+              }
+            } catch (e) {
+              console.error("Error cleaning up projectile:", e);
             }
-          }, 3000);
+          }, 5000); // Extended lifetime for projectiles
         }
       } catch (error) {
         console.error("Error creating projectile:", error);

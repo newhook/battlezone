@@ -18,17 +18,41 @@ export function createPhysicsWorld(): PhysicsWorld {
   
   // Physics world update function
   const update = (deltaTime: number) => {
+    // Step the physics simulation
     world.step();
+    
+    // Check for invalid bodies before updating
+    const validBodies = bodies.filter(body => {
+      try {
+        // This will throw an error if the body has been removed but is still in our array
+        body.translation();
+        return true;
+      } catch (e) {
+        console.warn("Found invalid physics body, removing from tracking");
+        return false;
+      }
+    });
+    
+    // Replace our bodies array with only valid bodies
+    if (validBodies.length !== bodies.length) {
+      bodies.length = 0;
+      bodies.push(...validBodies);
+    }
     
     // Update all physics objects
     for (let i = 0; i < bodies.length; i++) {
       const body = bodies[i];
       if (body.userData && body.userData.mesh) {
-        const position = body.translation();
-        const rotation = body.rotation();
-        
-        body.userData.mesh.position.set(position.x, position.y, position.z);
-        body.userData.mesh.quaternion.set(rotation.x, rotation.y, rotation.z, rotation.w);
+        try {
+          const position = body.translation();
+          const rotation = body.rotation();
+          
+          // Update mesh position and rotation from physics body
+          body.userData.mesh.position.set(position.x, position.y, position.z);
+          body.userData.mesh.quaternion.set(rotation.x, rotation.y, rotation.z, rotation.w);
+        } catch (e) {
+          console.error("Error updating body:", e);
+        }
       }
     }
   };

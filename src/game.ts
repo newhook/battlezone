@@ -186,16 +186,45 @@ export function updateGame(gameState: GameState, input: InputState, physicsWorld
   for (let i = gameState.projectiles.length - 1; i >= 0; i--) {
     const projectile = gameState.projectiles[i];
     
-    // Check for collisions with enemies
-    if (projectile.body) {
-      // Get projectile position
+    // Skip invalid projectiles
+    if (!projectile.body || !projectile.mesh) {
+      continue;
+    }
+    
+    try {
+      // Check if projectile is still valid (this will throw if the physics body is invalid)
       const projectilePos = projectile.body.translation();
+      
+      // Check if projectile has gone too far away (optimization)
+      const distanceFromOrigin = Math.sqrt(
+        projectilePos.x * projectilePos.x + 
+        projectilePos.y * projectilePos.y + 
+        projectilePos.z * projectilePos.z
+      );
+      
+      // If projectile has gone too far, remove it
+      if (distanceFromOrigin > 1000) {
+        if (projectile.mesh.parent) {
+          projectile.mesh.parent.remove(projectile.mesh);
+        }
+        
+        if (physicsWorld) {
+          physicsWorld.removeBody(projectile.body);
+        }
+        
+        gameState.projectiles.splice(i, 1);
+        continue;
+      }
       
       // Check collision with each enemy
       for (let j = gameState.enemies.length - 1; j >= 0; j--) {
         const enemy = gameState.enemies[j];
         
-        if (enemy.body) {
+        if (!enemy.body || !enemy.mesh) {
+          continue;
+        }
+        
+        try {
           const enemyPos = enemy.body.translation();
           
           // Calculate distance for collision detection
@@ -207,6 +236,11 @@ export function updateGame(gameState: GameState, input: InputState, physicsWorld
           
           // Check if collision occurred
           if (distance < 2) { // Collision threshold
+            console.log("Hit enemy at distance:", distance);
+            
+            // Create explosion effect
+            createExplosion(enemyPos, scene);
+            
             // Remove enemy from scene
             if (enemy.mesh.parent) {
               enemy.mesh.parent.remove(enemy.mesh);
@@ -243,9 +277,88 @@ export function updateGame(gameState: GameState, input: InputState, physicsWorld
             // Break inner loop since projectile is now removed
             break;
           }
+        } catch (e) {
+          console.error("Error checking enemy collision:", e);
         }
       }
+    } catch (e) {
+      console.warn("Invalid projectile found, removing", e);
+      
+      // Clean up invalid projectile
+      if (projectile.mesh && projectile.mesh.parent) {
+        projectile.mesh.parent.remove(projectile.mesh);
+      }
+      
+      gameState.projectiles.splice(i, 1);
     }
+  }
+}
+
+// Create explosion effect at the given position
+function createExplosion(position: THREE.Vector3 | RAPIER.Vector, scene: THREE.Scene) {
+  // Explosion particle count
+  const particleCount = 20;
+  
+  // Create explosion particles
+  for (let i = 0; i < particleCount; i++) {
+    // Random size for each particle
+    const size = 0.2 + Math.random() * 0.3;
+    
+    // Create particle
+    const geometry = new THREE.SphereGeometry(size, 8, 8);
+    const material = new THREE.MeshBasicMaterial({
+      color: Math.random() > 0.5 ? 0xff5500 : 0xffaa00,
+      transparent: true,
+      opacity: 1.0
+    });
+    
+    const particle = new THREE.Mesh(geometry, material);
+    
+    // Set particle position to explosion center
+    if (position instanceof THREE.Vector3) {
+      particle.position.copy(position);
+    } else {
+      particle.position.set(position.x, position.y, position.z);
+    }
+    
+    // Random velocity
+    const velocity = new THREE.Vector3(
+      Math.random() * 10 - 5,
+      Math.random() * 10, // Mostly upward
+      Math.random() * 10 - 5
+    );
+    
+    // Add to scene
+    scene.add(particle);
+    
+    // Animate the particle
+    const startTime = Date.now();
+    const duration = 500 + Math.random() * 500; // Between 0.5 and 1 second
+    
+    function animateParticle() {
+      const elapsed = Date.now() - startTime;
+      const progress = elapsed / duration;
+      
+      if (progress >= 1) {
+        // Remove particle when animation is done
+        scene.remove(particle);
+        return;
+      }
+      
+      // Update position based on velocity
+      particle.position.x += velocity.x * 0.02;
+      particle.position.y += velocity.y * 0.02 - 0.1 * progress; // Add gravity effect
+      particle.position.z += velocity.z * 0.02;
+      
+      // Fade out
+      material.opacity = 1 - progress;
+      
+      // Continue animation
+      requestAnimationFrame(animateParticle);
+    }
+    
+    // Start animation
+    animateParticle();
   }
 }
 

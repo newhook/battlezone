@@ -26,19 +26,27 @@ export class EnemyTank implements Vehicle {
     });
     this.mesh = new THREE.Mesh(tankGeometry, tankMaterial);
     
+    // Create a container for the turret to help with rotations
+    const turretContainer = new THREE.Object3D();
+    turretContainer.position.set(0, 0.375, 0); // Position on top of tank body
+    this.mesh.add(turretContainer);
+    
     // Enemy tank turret
     const turretGeometry = new THREE.CylinderGeometry(0.5, 0.5, 0.5, 8);
     const turretMesh = new THREE.Mesh(turretGeometry, tankMaterial);
-    turretMesh.position.set(0, 0.5, 0);
-    turretMesh.rotation.x = Math.PI / 2;
-    this.mesh.add(turretMesh);
+    turretMesh.position.set(0, 0.25, 0); // Half the height of the turret
+    turretContainer.add(turretMesh);
     
     // Enemy tank cannon
     const cannonGeometry = new THREE.CylinderGeometry(0.1, 0.1, 2, 8);
-    const cannonMesh = new THREE.Mesh(cannonGeometry, tankMaterial);
-    cannonMesh.position.set(0, 0, 1.2);
-    cannonMesh.rotation.x = Math.PI / 2;
-    turretMesh.add(cannonMesh);
+    const cannonMaterial = new THREE.MeshStandardMaterial({
+      color: 0xbb0000, // Slightly darker red for contrast
+      wireframe: false
+    });
+    const cannonMesh = new THREE.Mesh(cannonGeometry, cannonMaterial);
+    cannonMesh.position.set(0, 0, 1.0); // Position forward of the turret
+    cannonMesh.rotation.x = Math.PI / 2; // Rotate to point forward
+    turretContainer.add(cannonMesh);
     
     // Set initial position
     this.mesh.position.copy(position);
