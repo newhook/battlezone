@@ -1,16 +1,11 @@
 // Use dynamic import pattern
-import { PhysicsWorld as PhysicsWorldType } from './types';
+import { PhysicsWorld as PhysicsWorldType, PhysicsObject } from './types';
 import RAPIER from '@dimforge/rapier3d';
 import * as THREE from 'three';
 
-// Define the type for userData to include mesh
-interface PhysicsUserData {
-  mesh: THREE.Mesh;
-}
-
 export class PhysicsWorld implements PhysicsWorldType {
   world: RAPIER.World;
-  bodies: RAPIER.RigidBody[];
+  bodies: PhysicsObject[];
 
   constructor() {
     // Create a physics world
@@ -30,9 +25,13 @@ export class PhysicsWorld implements PhysicsWorldType {
     
     // Check for invalid bodies before updating
     const validBodies = this.bodies.filter(body => {
+      try {
         // This will throw an error if the body has been removed but is still in our array
-        body.translation();
+        body.body.translation();
         return true;
+      } catch (e) {
+        return false;
+      }
     });
     
     // Replace our bodies array with only valid bodies
@@ -44,31 +43,26 @@ export class PhysicsWorld implements PhysicsWorldType {
     // Update all physics objects
     for (let i = 0; i < this.bodies.length; i++) {
       const body = this.bodies[i];
-      const userData = body.userData as PhysicsUserData | undefined;
-      if (userData?.mesh) {
-        try {
-          const position = body.translation();
-          const rotation = body.rotation();
+      if (body.mesh) {
+          const position = body.body.translation();
+          const rotation = body.body.rotation();
           
           // Update mesh position and rotation from physics body
-          userData.mesh.position.set(position.x, position.y, position.z);
-          userData.mesh.quaternion.set(rotation.x, rotation.y, rotation.z, rotation.w);
-        } catch (e) {
-          console.error("Error updating body:", e);
-        }
+          body.mesh.position.set(position.x, position.y, position.z);
+          body.mesh.quaternion.set(rotation.x, rotation.y, rotation.z, rotation.w);
       }
     }
   }
 
-  addBody(body: RAPIER.RigidBody): void {
+  addBody(body: PhysicsObject): void {
     this.bodies.push(body);
   }
 
-  removeBody(body: RAPIER.RigidBody): void {
+  removeBody(body: PhysicsObject): void {
     const index = this.bodies.indexOf(body);
     if (index !== -1) {
       this.bodies.splice(index, 1);
-      this.world.removeRigidBody(body);
+      this.world.removeRigidBody(body.body);
     }
   }
 }

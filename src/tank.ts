@@ -211,16 +211,15 @@ export abstract class Tank implements Vehicle {
         
         // Add to scene
         scene.add(projectileMesh);
-        window.physicsWorld.addBody(projectileBody);
-        
-        // Add projectile to game objects
-        if (window.gameState) {
           const projectile: GameObject = {
             mesh: projectileMesh,
             body: projectileBody,
             update: () => {} // Physics world handles updates
           };
-          
+        window.physicsWorld.addBody(projectile)
+        
+        // Add projectile to game objects
+        if (window.gameState) {
           window.gameState.projectiles.push(projectile);
           
           // Destroy projectile after 5 seconds
@@ -231,7 +230,7 @@ export abstract class Tank implements Vehicle {
               }
               
               if (window.physicsWorld && projectileBody) {
-                window.physicsWorld.removeBody(projectileBody);
+                window.physicsWorld.removeBody(projectile);
               }
               
               if (window.gameState) {

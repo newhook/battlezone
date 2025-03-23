@@ -3,7 +3,7 @@ import RAPIER from '@dimforge/rapier3d';
 
 export interface GameObject {
   mesh: THREE.Mesh;
-  body?: RAPIER.RigidBody;
+  body: RAPIER.RigidBody;
   update?: () => void;
 }
 
@@ -47,10 +47,15 @@ export interface InputState {
   turretRight: boolean; // For E key
 }
 
+export interface PhysicsObject {
+  mesh: THREE.Mesh;
+  body: RAPIER.RigidBody;
+}
+
 export interface PhysicsWorld {
   world: RAPIER.World;
-  bodies: RAPIER.RigidBody[];
+  bodies: PhysicsObject[];
   update: (deltaTime: number) => void;
-  addBody: (body: RAPIER.RigidBody) => void;
-  removeBody: (body: RAPIER.RigidBody) => void;
+  addBody: (body: PhysicsObject) => void;
+  removeBody: (body: PhysicsObject) => void;
 }

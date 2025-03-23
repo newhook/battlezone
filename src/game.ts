@@ -13,7 +13,7 @@ export function setupGame(scene: THREE.Scene): { gameState: GameState, physicsWo
   // Create player tank
   const player = new PlayerTank(physicsWorld);
   scene.add(player.mesh);
-  physicsWorld.addBody(player.body);
+  physicsWorld.addBody(player);
   
   // Create more enemy tanks spread across the large terrain
   const enemies: Vehicle[] = [];
@@ -30,7 +30,7 @@ export function setupGame(scene: THREE.Scene): { gameState: GameState, physicsWo
     const enemy = new EnemyTank(physicsWorld, new THREE.Vector3(x, 0, z));
     enemies.push(enemy);
     scene.add(enemy.mesh);
-    physicsWorld.addBody(enemy.body);
+    physicsWorld.addBody(enemy);
   }
   
   // Create random terrain objects (obstacles) across the 1000x1000 terrain
@@ -61,7 +61,7 @@ export function setupGame(scene: THREE.Scene): { gameState: GameState, physicsWo
     // We don't need to create physics bodies here since they're already created in createTerrain
     // Just add the existing body to the physics world
     if (obj.body) {
-      physicsWorld.addBody(obj.body);
+      physicsWorld.addBody(obj);
     }
   });
   
@@ -85,8 +85,7 @@ export function setupGame(scene: THREE.Scene): { gameState: GameState, physicsWo
     
     // Create physics body for wall
     wall.body = createObstacleBody(size, position, physicsWorld.world, 0);
-    wall.body.userData = { mesh: wall.mesh };
-    physicsWorld.addBody(wall.body);
+    physicsWorld.addBody(wall);
   });
   
   // Create ground (expanded to 1000 x 1000)
