@@ -1,7 +1,6 @@
 // Use dynamic import pattern
 import { PhysicsWorld as PhysicsWorldType, GameObject } from './types';
 import RAPIER from '@dimforge/rapier3d';
-import * as THREE from 'three';
 
 export class PhysicsWorld implements PhysicsWorldType {
   world: RAPIER.World;
