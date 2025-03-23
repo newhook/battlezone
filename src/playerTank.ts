@@ -8,7 +8,7 @@ export class PlayerTank extends Tank {
     super(physicsWorld, position, 0x00ff00); // Call base class constructor with green color
     
     // Override base speeds for player-specific values
-    this.speed = 150;  // Increased from base for faster player movement
-    this.turnSpeed = 1.5;  // Reduced from 20 to 8 for more controlled turning
+    this.speed = 125; 
+    this.turnSpeed = 1.5;
   }
 }

@@ -13,8 +13,7 @@ export class PhysicsWorld implements PhysicsWorldType {
     this.bodies = [];
 
     // Create ground plane
-    const groundColliderDesc = RAPIER.ColliderDesc.cuboid(500.0, 0.1, 500.0)
-      .setTranslation(0, -0.1, 0);
+    const groundColliderDesc = RAPIER.ColliderDesc.cuboid(500.0, 0.1, 500.0).setTranslation(0, -0.1, 0)
     this.world.createCollider(groundColliderDesc);
   }
 
@@ -74,8 +73,8 @@ export function createVehicleBody(
   // Create rigid body description
   const rigidBodyDesc = RAPIER.RigidBodyDesc.dynamic()
     .setTranslation(0, size.height / 2, 0)
-    .setLinearDamping(0.1)  // Reduced from 0.5
-    .setAngularDamping(0.2); // Reduced from 0.5
+    .setLinearDamping(0.5)  // Increased from 0.1 to 1.0 for more resistance to movement
+    .setAngularDamping(1.0); // Increased from 0.2 to 2.0 for more resistance to rotation
   
   const body = world.createRigidBody(rigidBodyDesc);
   
@@ -88,8 +87,8 @@ export function createVehicleBody(
   
   // Set mass properties
   colliderDesc.setDensity(mass / (size.width * size.height * size.depth));
-  colliderDesc.setFriction(0.7);    // Increased from 0.5 for better grip
-  colliderDesc.setRestitution(0.1); // Reduced from 0.2 for less bouncing
+  colliderDesc.setFriction(1.5);    // Increased from 0.7 for much better grip
+  colliderDesc.setRestitution(0.0); // Reduced from 0.1 to eliminate bouncing
   
   // Attach collider to body
   world.createCollider(colliderDesc, body);

@@ -66,8 +66,8 @@ export abstract class Tank implements Vehicle {
     
     // Physics body will be created when the tank is added to the world
     // For now, just initialize properties
-    this.speed = 150;  // Base movement force
-    this.turnSpeed = 5;  // Reduced from 20 to 5 for slower rotation
+    this.speed = 50;  // Reduced from 150 for more controlled movement
+    this.turnSpeed = 5;  // Keep existing turn speed
     this.canFire = true;
     this.lastFired = 0;
     
