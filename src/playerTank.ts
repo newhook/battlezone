@@ -9,6 +9,6 @@ export class PlayerTank extends Tank {
     
     // Override base speeds for player-specific values
     this.speed = 150;  // Increased from base for faster player movement
-    this.turnSpeed = 20;  // Increased from base for faster player turning
+    this.turnSpeed = 1.5;  // Reduced from 20 to 8 for more controlled turning
   }
 }

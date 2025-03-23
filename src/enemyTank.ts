@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { Vehicle } from './types';
 import { Tank } from './tank';
 import { PhysicsWorld } from './physics';
 
@@ -15,7 +14,7 @@ export class EnemyTank extends Tank {
 
     // Enemy-specific properties
     this.speed = 5;  // Slower than player
-    this.turnSpeed = 1;  // Slower turning than player
+    this.turnSpeed = 2;  // Increased from 1 to 2 to compensate for the lower base turn speed
     this.detectionRange = 50;
     this.firingRange = 30;
     this.aiUpdateInterval = 500;
@@ -63,16 +62,13 @@ export class EnemyTank extends Tank {
       const cross = new THREE.Vector3().crossVectors(forward, directionToPlayer);
       const turnDirection = Math.sign(cross.y);
       
-      // If we need to turn more than a small threshold angle
+      // First rotate to face the player - tanks can rotate in place
       if (Math.abs(angleToPlayer) > 0.1) {
-        this.turn(turnDirection * 0.5); // Slower turning for more natural movement
-      }
-      
-      // Move forward if facing approximately the right direction
-      if (Math.abs(angleToPlayer) < Math.PI / 4) {
-        this.move(0.5); // Forward at half speed
+        this.turn(turnDirection * 0.5); // Rotate in place
+        // Don't move while making significant rotations
       } else {
-        this.move(0); // Stop moving if we need to turn a lot
+        // Only move forward when properly aligned with target
+        this.move(0.5); // Forward at half speed
       }
     } else {
       // Random patrol movement if no player detected
@@ -99,11 +95,12 @@ export class EnemyTank extends Tank {
       const cross = new THREE.Vector3().crossVectors(forward, directionToTarget);
       const turnDirection = Math.sign(cross.y);
       
+      // First rotate in place to face target direction
       if (Math.abs(angleToTarget) > 0.1) {
         this.turn(turnDirection * 0.3);
-      }
-      
-      if (Math.abs(angleToTarget) < Math.PI / 3) {
+        // Don't move while making significant rotations
+      } else {
+        // Only move forward when properly aligned with target
         this.move(0.3); // Slower patrol speed
       }
     }
