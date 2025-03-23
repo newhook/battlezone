@@ -143,9 +143,4 @@ export class EnemyTank extends Tank {
     // Check if we need to fire at the player
     this.checkAndFireAtPlayer();
   }
-
-  // Method to create an instance of enemy tank from position
-  static create(position: THREE.Vector3): Vehicle {
-    return new EnemyTank(position);
-  }
 }
