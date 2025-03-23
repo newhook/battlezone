@@ -8,11 +8,12 @@ import { createVehicleBody } from './physics';
  */
 export abstract class Tank implements Vehicle {
   mesh: THREE.Mesh;
-  body: RAPIER.RigidBody;
+  body: RAPIER.RigidBody | undefined;
   speed: number;
   turnSpeed: number;
   canFire: boolean;
   lastFired: number;
+  protected turretContainer: THREE.Object3D;
 
   constructor(
     position: THREE.Vector3 = new THREE.Vector3(0, 0.4, 0),
@@ -32,30 +33,30 @@ export abstract class Tank implements Vehicle {
     this.mesh = new THREE.Mesh(tankGeometry, tankMaterial);
     
     // Create a container for the turret to help with rotations
-    const turretContainer = new THREE.Object3D();
-    turretContainer.position.set(0, tankDimensions.height/2, 0); // Position on top of tank body
-    this.mesh.add(turretContainer);
+    this.turretContainer = new THREE.Object3D();
+    this.turretContainer.position.set(0, tankDimensions.height/2, 0); // Position on top of tank body
+    this.mesh.add(this.turretContainer);
     
     // Tank turret
     const turretGeometry = new THREE.CylinderGeometry(0.5, 0.5, 0.5, 8);
     const turretMesh = new THREE.Mesh(turretGeometry, tankMaterial);
     // Don't rotate the turret itself, only position it
     turretMesh.position.set(0, 0.25, 0); // Half the height of the turret
-    turretContainer.add(turretMesh);
+    this.turretContainer.add(turretMesh);
     
     // Tank cannon
-    const cannonGeometry = new THREE.CylinderGeometry(0.1, 0.1, 2, 8);
+    const cannonLength = 2;
+    const cannonGeometry = new THREE.CylinderGeometry(0.1, 0.1, cannonLength, 8);
     const cannonMaterial = new THREE.MeshStandardMaterial({
       color: this.getCannonColor(color), // Slightly darker for contrast
       wireframe: false
     });
     const cannonMesh = new THREE.Mesh(cannonGeometry, cannonMaterial);
     
-    // Properly position and rotate the cannon
-    cannonMesh.position.set(0, 0, 1.0); // Position forward of the turret
-    // Rotate to point forward (cylinders by default are along the Y axis)
-    cannonMesh.rotation.x = Math.PI / 2;
-    turretContainer.add(cannonMesh);
+    // Position and rotate the cannon to be centered in the turret
+    cannonMesh.position.set(0, tankDimensions.height/4, cannonLength/2); // Move forward by half its length
+    cannonMesh.rotation.x = Math.PI / 2; // Rotate to point forward
+    this.turretContainer.add(cannonMesh);
     
     // Set initial position
     this.mesh.position.copy(position);
@@ -68,7 +69,7 @@ export abstract class Tank implements Vehicle {
     this.lastFired = 0;
     
     // The body will be set when added to the scene in game.ts
-    this.body = null;
+    this.body = undefined;
   }
 
   // Helper method to create slightly darker color for cannon
@@ -134,16 +135,9 @@ export abstract class Tank implements Vehicle {
   fire(): void {
     if (!this.canFire) return;
     
-    // Find the turret container and cannon more reliably
-    const turretContainer = this.mesh.children[0];
-    if (!turretContainer) {
-      console.error("Could not find turret container");
-      return;
-    }
-    
     // Find the cannon mesh within the turret container
-    let cannon = null;
-    turretContainer.traverse(child => {
+    let cannon: THREE.Mesh | null = null;
+    this.turretContainer.traverse(child => {
       if (child instanceof THREE.Mesh && 
           child.geometry instanceof THREE.CylinderGeometry && 
           child.geometry.parameters.radiusTop === 0.1) {
@@ -158,14 +152,16 @@ export abstract class Tank implements Vehicle {
     
     // Calculate the cannon tip position in world space
     const cannonWorldPosition = new THREE.Vector3();
-    cannon.getWorldPosition(cannonWorldPosition);
+    (cannon as THREE.Object3D).getWorldPosition(cannonWorldPosition);
     
-    // Calculate a position at the tip of the cannon
+    // Calculate forward direction based on turret's rotation
     const forward = new THREE.Vector3(0, 0, 1);
-    forward.applyQuaternion(this.mesh.quaternion);
+    const turretWorldQuaternion = new THREE.Quaternion();
+    this.turretContainer.getWorldQuaternion(turretWorldQuaternion);
+    forward.applyQuaternion(turretWorldQuaternion);
     forward.normalize();
     
-    // Position the projectile at the tip of the cannon (a bit in front)
+    // Position the projectile at the tip of the cannon
     const cannonTip = cannonWorldPosition.clone().add(forward.clone().multiplyScalar(1.5));
     
     // Create projectile mesh with bright, glowing material
@@ -209,9 +205,9 @@ export abstract class Tank implements Vehicle {
         // Link mesh to physics body
         projectileBody.userData = { mesh: projectileMesh };
         
-        // Apply velocity in the direction the tank is facing
+        // Apply velocity in the direction of the turret
         const projectileSpeed = 100; // Fast projectile speed
-        forward.multiplyScalar(projectileSpeed); 
+        forward.multiplyScalar(projectileSpeed);
         
         // Add tank's velocity to projectile velocity
         if (this.body) {
@@ -273,12 +269,12 @@ export abstract class Tank implements Vehicle {
   }
 
   rotateTurret(direction: number): void {
-    // Find the turret container
-    const turretContainer = this.mesh.children[0];
-    if (turretContainer) {
-      // Rotate the turret container around the Y axis
-      turretContainer.rotation.y += direction * 0.05;
-    }
+    // Calculate new rotation
+    const newRotation = this.turretContainer.rotation.y + direction * 0.05;
+    
+    // Limit rotation to ±45 degrees (±π/4 radians)
+    const maxRotation = Math.PI / 4;
+    this.turretContainer.rotation.y = Math.max(-maxRotation, Math.min(maxRotation, newRotation));
   }
 
   update(): void {
@@ -286,7 +282,7 @@ export abstract class Tank implements Vehicle {
   }
 
   // Method to check status and take damage
-  takeDamage(amount: number = 1): boolean {
+  takeDamage(_amount: number = 1): boolean {
     // Flash the tank briefly
     const originalColor = (this.mesh.material as THREE.MeshStandardMaterial).color.clone();
     (this.mesh.material as THREE.MeshStandardMaterial).color.set(0xffffff);
