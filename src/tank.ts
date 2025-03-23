@@ -92,8 +92,6 @@ export abstract class Tank implements Vehicle {
   }
 
   move(direction: number): void {
-    if (!this.body) return;
-    
     // Ensure the body is awake
     this.body.wakeUp();
     
@@ -118,8 +116,6 @@ export abstract class Tank implements Vehicle {
   }
 
   turn(direction: number): void {
-    if (!this.body) return;
-    
     // Ensure the body is awake
     this.body.wakeUp();
     
@@ -206,10 +202,8 @@ export abstract class Tank implements Vehicle {
         forward.multiplyScalar(projectileSpeed);
         
         // Add tank's velocity to projectile velocity
-        if (this.body) {
-          const tankVel = this.body.linvel();
-          forward.add(new THREE.Vector3(tankVel.x, tankVel.y, tankVel.z));
-        }
+        const tankVel = this.body.linvel();
+        forward.add(new THREE.Vector3(tankVel.x, tankVel.y, tankVel.z));
         
         // Set linear velocity of projectile
         projectileBody.setLinvel({ x: forward.x, y: forward.y, z: forward.z }, true);
