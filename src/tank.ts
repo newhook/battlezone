@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d';
-import { GameObject, Vehicle } from './types';
+import { Vehicle } from './types';
 import { PhysicsWorld, createVehicleBody } from './physics';
+import { Projectile } from './projectile';
 
 /**
  * Base Tank class for shared functionality between player and enemy tanks
@@ -156,93 +157,27 @@ export abstract class Tank implements Vehicle {
     // Position the projectile at the tip of the cannon
     const cannonTip = cannonWorldPosition.clone().add(forward.clone().multiplyScalar(1.5));
     
-    // Create projectile mesh with bright, glowing material
-    const projectileGeometry = new THREE.SphereGeometry(0.5, 16, 16);
-    const projectileMaterial = new THREE.MeshStandardMaterial({ 
-      color: 0xffff00, 
-      wireframe: false,
-      emissive: 0xffff00,
-      emissiveIntensity: 0.8
-    });
-    const projectileMesh = new THREE.Mesh(projectileGeometry, projectileMaterial);
-    projectileMesh.position.copy(cannonTip);
-    
-    // Add a point light to the projectile to make it glow
-    const projectileLight = new THREE.PointLight(0xffff00, 1, 10);
-    projectileLight.position.set(0, 0, 0);
-    projectileMesh.add(projectileLight);
+    // Get tank's current velocity to add to projectile
+    const tankVel = this.body.linvel();
+    const initialVelocity = new THREE.Vector3(tankVel.x, tankVel.y, tankVel.z);
     
     // Create projectile physics body
     const scene = this.mesh.parent;
-    if (scene && window.physicsWorld) {
-      const world = window.physicsWorld.world;
-      
+    if (scene instanceof THREE.Scene && window.physicsWorld) {
       try {
-        // Create rigid body for projectile
-        const rigidBodyDesc = RAPIER.RigidBodyDesc.dynamic()
-          .setTranslation(cannonTip.x, cannonTip.y, cannonTip.z)
-          .setLinearDamping(0.0) // No drag on projectiles
-          .setAngularDamping(0.0); // No angular drag
-        
-        const projectileBody = world.createRigidBody(rigidBodyDesc);
-        
-        // Create collider (slightly smaller than visual size for better gameplay)
-        const colliderDesc = RAPIER.ColliderDesc.ball(0.4);
-        colliderDesc.setDensity(1.0);
-        colliderDesc.setRestitution(0.5);
-        colliderDesc.setFriction(0.0);
-        
-        world.createCollider(colliderDesc, projectileBody);
-        
-        // Link mesh to physics body
-        projectileBody.userData = { mesh: projectileMesh };
-        
-        // Apply velocity in the direction of the turret
-        const projectileSpeed = 100; // Fast projectile speed
-        forward.multiplyScalar(projectileSpeed);
-        
-        // Add tank's velocity to projectile velocity
-        const tankVel = this.body.linvel();
-        forward.add(new THREE.Vector3(tankVel.x, tankVel.y, tankVel.z));
-        
-        // Set linear velocity of projectile
-        projectileBody.setLinvel({ x: forward.x, y: forward.y, z: forward.z }, true);
-        projectileBody.wakeUp();
-        
-        // Add to scene
-        scene.add(projectileMesh);
-          const projectile: GameObject = {
-            mesh: projectileMesh,
-            body: projectileBody,
-            update: () => {} // Physics world handles updates
-          };
-        window.physicsWorld.addBody(projectile)
-        
-        // Add projectile to game objects
+        // Create new projectile using the Projectile class
+        const projectile = new Projectile(
+          cannonTip,
+          forward.clone(),
+          initialVelocity,
+          scene,
+          window.physicsWorld
+        );
+
+        // Add to physics world and game state
+        window.physicsWorld.addBody(projectile);
         if (window.gameState) {
           window.gameState.projectiles.push(projectile);
-          
-          // Destroy projectile after 5 seconds
-          setTimeout(() => {
-            try {
-              if (scene && projectileMesh.parent) {
-                scene.remove(projectileMesh);
-              }
-              
-              if (window.physicsWorld && projectileBody) {
-                window.physicsWorld.removeBody(projectile);
-              }
-              
-              if (window.gameState) {
-                const index = window.gameState.projectiles.indexOf(projectile);
-                if (index !== -1) {
-                  window.gameState.projectiles.splice(index, 1);
-                }
-              }
-            } catch (e) {
-              console.error("Error cleaning up projectile:", e);
-            }
-          }, 5000); // Extended lifetime for projectiles
         }
       } catch (error) {
         console.error("Error creating projectile:", error);

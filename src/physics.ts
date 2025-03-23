@@ -1,11 +1,11 @@
 // Use dynamic import pattern
-import { PhysicsWorld as PhysicsWorldType, PhysicsObject } from './types';
+import { PhysicsWorld as PhysicsWorldType, GameObject } from './types';
 import RAPIER from '@dimforge/rapier3d';
 import * as THREE from 'three';
 
 export class PhysicsWorld implements PhysicsWorldType {
   world: RAPIER.World;
-  bodies: PhysicsObject[];
+  bodies: GameObject[];
 
   constructor() {
     // Create a physics world
@@ -54,11 +54,11 @@ export class PhysicsWorld implements PhysicsWorldType {
     }
   }
 
-  addBody(body: PhysicsObject): void {
+  addBody(body: GameObject): void {
     this.bodies.push(body);
   }
 
-  removeBody(body: PhysicsObject): void {
+  removeBody(body: GameObject): void {
     const index = this.bodies.indexOf(body);
     if (index !== -1) {
       this.bodies.splice(index, 1);

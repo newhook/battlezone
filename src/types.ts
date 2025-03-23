@@ -47,15 +47,10 @@ export interface InputState {
   turretRight: boolean; // For E key
 }
 
-export interface PhysicsObject {
-  mesh: THREE.Mesh;
-  body: RAPIER.RigidBody;
-}
-
 export interface PhysicsWorld {
   world: RAPIER.World;
-  bodies: PhysicsObject[];
+  bodies: GameObject[];
   update: (deltaTime: number) => void;
-  addBody: (body: PhysicsObject) => void;
-  removeBody: (body: PhysicsObject) => void;
+  addBody: (body: GameObject) => void;
+  removeBody: (body: GameObject) => void;
 }
