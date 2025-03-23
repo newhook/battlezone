@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import { GameState, GameObject, Vehicle, InputState } from './types';
-import { createTerrain, createBoundaryWalls, createGround } from './gameObjects';
+import { createTerrain, createGround } from './gameObjects';
 import { PlayerTank } from './playerTank';
 import { EnemyTank } from './enemyTank';
-import { createPhysicsWorld, createObstacleBody } from './physics';
+import { createPhysicsWorld } from './physics';
 
 // Set up the game state
 export function setupGame(scene: THREE.Scene): { gameState: GameState, physicsWorld: any } {
@@ -141,6 +141,14 @@ export function updateGame(gameState: GameState, input: InputState, physicsWorld
     gameState.player.turn(-1);
   }
   
+  // Handle turret rotation
+  if (input.turretLeft) {
+    gameState.player.rotateTurret(1);
+  }
+  if (input.turretRight) {
+    gameState.player.rotateTurret(-1);
+  }
+  
   // Handle firing with debug info
   if (input.fire) {
     console.log("Fire button pressed, canFire =", gameState.player.canFire);
@@ -240,7 +248,9 @@ export function updateGame(gameState: GameState, input: InputState, physicsWorld
             console.log("Hit enemy at distance:", distance);
             
             // Create explosion effect
-            createExplosion(enemyPos, scene);
+            if (enemy.mesh.parent) {
+              createExplosion(enemyPos, enemy.mesh.parent);
+            }
             
             // Remove enemy from scene
             if (enemy.mesh.parent) {
@@ -296,7 +306,7 @@ export function updateGame(gameState: GameState, input: InputState, physicsWorld
 }
 
 // Create explosion effect at the given position
-function createExplosion(position: THREE.Vector3 | RAPIER.Vector, scene: THREE.Scene) {
+function createExplosion(position: { x: number, y: number, z: number }, scene: THREE.Object3D) {
   // Explosion particle count
   const particleCount = 20;
   
@@ -316,11 +326,7 @@ function createExplosion(position: THREE.Vector3 | RAPIER.Vector, scene: THREE.S
     const particle = new THREE.Mesh(geometry, material);
     
     // Set particle position to explosion center
-    if (position instanceof THREE.Vector3) {
-      particle.position.copy(position);
-    } else {
-      particle.position.set(position.x, position.y, position.z);
-    }
+    particle.position.set(position.x, position.y, position.z);
     
     // Random velocity
     const velocity = new THREE.Vector3(

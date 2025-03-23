@@ -13,6 +13,7 @@ export interface Vehicle extends GameObject {
   move: (direction: number) => void;
   turn: (direction: number) => void;
   fire: () => void;
+  rotateTurret: (direction: number) => void;
   canFire: boolean;
   lastFired: number;
 }
@@ -42,6 +43,8 @@ export interface InputState {
   fire: boolean;
   toggleFlyCamera: boolean;
   wireframeToggle: boolean;
+  turretLeft: boolean;  // For Q key
+  turretRight: boolean; // For E key
 }
 
 export interface PhysicsWorld {
