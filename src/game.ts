@@ -16,7 +16,9 @@ export function setupGame(scene: THREE.Scene): { gameState: GameState, physicsWo
   
   // Initialize player physics
   player.initPhysics(physicsWorld.world);
-  physicsWorld.addBody(player.body);
+  if (player.body) {
+    physicsWorld.addBody(player.body);
+  }
   
   // Create more enemy tanks spread across the large terrain
   const enemies: Vehicle[] = [];
@@ -36,7 +38,9 @@ export function setupGame(scene: THREE.Scene): { gameState: GameState, physicsWo
     
     // Initialize enemy physics
     enemy.initPhysics(physicsWorld.world);
-    physicsWorld.addBody(enemy.body);
+    if (enemy.body) {
+      physicsWorld.addBody(enemy.body);
+    }
   }
   
   // Create random terrain objects (obstacles) across the 1000x1000 terrain
@@ -127,29 +131,32 @@ export function updateGame(gameState: GameState, input: InputState, physicsWorld
   // Update physics world
   physicsWorld.update(deltaTime);
   
-  // Handle player input
-  if (input.forward) {
-    gameState.player.move(1);
-  }
-  if (input.backward) {
-    gameState.player.move(-1);
-  }
-  if (input.left) {
-    gameState.player.turn(1);
-  }
-  if (input.right) {
-    gameState.player.turn(-1);
+  // Only process tank movement controls if not in fly mode
+  if (!input.toggleFlyCamera) {
+    // Handle player input
+    if (input.forward) {
+      gameState.player.move(1);
+    }
+    if (input.backward) {
+      gameState.player.move(-1);
+    }
+    if (input.left) {
+      gameState.player.turn(1);
+    }
+    if (input.right) {
+      gameState.player.turn(-1);
+    }
+    
+    // Handle turret rotation
+    if (input.turretLeft) {
+      gameState.player.rotateTurret(1);
+    }
+    if (input.turretRight) {
+      gameState.player.rotateTurret(-1);
+    }
   }
   
-  // Handle turret rotation
-  if (input.turretLeft) {
-    gameState.player.rotateTurret(1);
-  }
-  if (input.turretRight) {
-    gameState.player.rotateTurret(-1);
-  }
-  
-  // Handle firing with debug info
+  // Handle firing - this remains active in both modes
   if (input.fire) {
     console.log("Fire button pressed, canFire =", gameState.player.canFire);
     
