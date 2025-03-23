@@ -30,14 +30,9 @@ export class PhysicsWorld implements PhysicsWorldType {
     
     // Check for invalid bodies before updating
     const validBodies = this.bodies.filter(body => {
-      try {
         // This will throw an error if the body has been removed but is still in our array
         body.translation();
         return true;
-      } catch (e) {
-        console.warn("Found invalid physics body, removing from tracking");
-        return false;
-      }
     });
     
     // Replace our bodies array with only valid bodies
