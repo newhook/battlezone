@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { Vehicle } from './types';
 import { Tank } from './tank';
 import { PhysicsWorld } from './physics';
 

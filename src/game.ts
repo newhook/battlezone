@@ -6,7 +6,7 @@ import { EnemyTank } from './enemyTank';
 import { PhysicsWorld, createObstacleBody } from './physics';
 
 // Set up the game state
-export function setupGame(scene: THREE.Scene): { gameState: GameState, physicsWorld: any } {
+export function setupGame(scene: THREE.Scene): { gameState: GameState, physicsWorld: PhysicsWorld } {
   // Create physics world
   const physicsWorld = new PhysicsWorld();
   
