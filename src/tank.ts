@@ -15,6 +15,7 @@ export abstract class Tank implements Vehicle {
   canFire: boolean;
   lastFired: number;
   protected turretContainer: THREE.Object3D;
+  protected cannonMesh: THREE.Mesh;
 
   constructor(
     physicsWorld : PhysicsWorld,
@@ -53,12 +54,12 @@ export abstract class Tank implements Vehicle {
       color: this.getCannonColor(color), // Slightly darker for contrast
       wireframe: false
     });
-    const cannonMesh = new THREE.Mesh(cannonGeometry, cannonMaterial);
+    this.cannonMesh = new THREE.Mesh(cannonGeometry, cannonMaterial);
     
     // Position and rotate the cannon to be centered in the turret
-    cannonMesh.position.set(0, tankDimensions.height/4, cannonLength/2); // Move forward by half its length
-    cannonMesh.rotation.x = Math.PI / 2; // Rotate to point forward
-    this.turretContainer.add(cannonMesh);
+    this.cannonMesh.position.set(0, tankDimensions.height/4, cannonLength/2); // Move forward by half its length
+    this.cannonMesh.rotation.x = Math.PI / 2; // Rotate to point forward
+    this.turretContainer.add(this.cannonMesh);
     
     // Set initial position
     this.mesh.position.copy(position);
@@ -128,24 +129,9 @@ export abstract class Tank implements Vehicle {
   fire(): void {
     if (!this.canFire) return;
     
-    // Find the cannon mesh within the turret container
-    let cannon: THREE.Mesh | null = null;
-    this.turretContainer.traverse(child => {
-      if (child instanceof THREE.Mesh && 
-          child.geometry instanceof THREE.CylinderGeometry && 
-          child.geometry.parameters.radiusTop === 0.1) {
-        cannon = child;
-      }
-    });
-    
-    if (!cannon) {
-      console.error("Could not find cannon for firing");
-      return;
-    }
-    
     // Calculate the cannon tip position in world space
     const cannonWorldPosition = new THREE.Vector3();
-    (cannon as THREE.Object3D).getWorldPosition(cannonWorldPosition);
+    this.cannonMesh.getWorldPosition(cannonWorldPosition);
     
     // Calculate forward direction based on turret's rotation
     const forward = new THREE.Vector3(0, 0, 1);
