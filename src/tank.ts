@@ -1,14 +1,14 @@
 import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d';
 import { GameObject, Vehicle } from './types';
-import { createVehicleBody } from './physics';
+import { PhysicsWorld, createVehicleBody } from './physics';
 
 /**
  * Base Tank class for shared functionality between player and enemy tanks
  */
 export abstract class Tank implements Vehicle {
   mesh: THREE.Mesh;
-  body: RAPIER.RigidBody | undefined;
+  body: RAPIER.RigidBody;
   speed: number;
   turnSpeed: number;
   canFire: boolean;
@@ -16,6 +16,7 @@ export abstract class Tank implements Vehicle {
   protected turretContainer: THREE.Object3D;
 
   constructor(
+    physicsWorld : PhysicsWorld,
     position: THREE.Vector3 = new THREE.Vector3(0, 0.4, 0),
     color: number = 0x00ff00, 
     tankDimensions = { width: 2, height: 0.75, depth: 3 }
@@ -69,7 +70,18 @@ export abstract class Tank implements Vehicle {
     this.lastFired = 0;
     
     // The body will be set when added to the scene in game.ts
-    this.body = undefined;
+    // Create physics body for the tank
+    this.body = createVehicleBody(
+      { width: 2, height: 0.75, depth: 3 },
+      500,
+      physicsWorld.world,
+    );
+    
+    // Set initial physics body position to match mesh
+    this.body.setTranslation({ x: position.x, y: position.y, z: position.z }, true);
+    
+    // Link the mesh to the physics body for updates
+    this.body.userData = { mesh: this.mesh };
   }
 
   // Helper method to create slightly darker color for cannon
@@ -77,22 +89,6 @@ export abstract class Tank implements Vehicle {
     const color = new THREE.Color(tankColor);
     color.multiplyScalar(0.8); // Make it darker
     return color.getHex();
-  }
-
-  initPhysics(world: RAPIER.World) {
-    // Create physics body for the tank
-    this.body = createVehicleBody(
-      { width: 2, height: 0.75, depth: 3 },
-      500,
-      world
-    );
-    
-    // Set initial physics body position to match mesh
-    const position = this.mesh.position;
-    this.body.setTranslation({ x: position.x, y: position.y, z: position.z }, true);
-    
-    // Link the mesh to the physics body for updates
-    this.body.userData = { mesh: this.mesh };
   }
 
   move(direction: number): void {

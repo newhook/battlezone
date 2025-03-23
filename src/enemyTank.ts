@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Vehicle } from './types';
 import { Tank } from './tank';
+import { PhysicsWorld } from './physics';
 
 export class EnemyTank extends Tank {
   targetPosition: THREE.Vector3 | null = null;
@@ -9,8 +10,8 @@ export class EnemyTank extends Tank {
   aiUpdateInterval: number;
   aiIntervalId: number | null = null;
 
-  constructor(position: THREE.Vector3) {
-    super(position, 0xff0000); // Call base class constructor with red color
+  constructor(physicsWorld : PhysicsWorld, position: THREE.Vector3) {
+    super(physicsWorld, position, 0xff0000); // Call base class constructor with red color
 
     // Enemy-specific properties
     this.speed = 5;  // Slower than player

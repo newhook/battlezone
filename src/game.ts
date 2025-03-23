@@ -11,14 +11,9 @@ export function setupGame(scene: THREE.Scene): { gameState: GameState, physicsWo
   const physicsWorld = new PhysicsWorld();
   
   // Create player tank
-  const player = new PlayerTank();
+  const player = new PlayerTank(physicsWorld);
   scene.add(player.mesh);
-  
-  // Initialize player physics
-  player.initPhysics(physicsWorld.world);
-  if (player.body) {
-    physicsWorld.addBody(player.body);
-  }
+  physicsWorld.addBody(player.body);
   
   // Create more enemy tanks spread across the large terrain
   const enemies: Vehicle[] = [];
@@ -32,15 +27,10 @@ export function setupGame(scene: THREE.Scene): { gameState: GameState, physicsWo
       z = (Math.random() * 960) - 480;
     } while (Math.sqrt(x*x + z*z) < 100); // Keep at least 100 units away from origin
     
-    const enemy = new EnemyTank(new THREE.Vector3(x, 0, z));
+    const enemy = new EnemyTank(physicsWorld, new THREE.Vector3(x, 0, z));
     enemies.push(enemy);
     scene.add(enemy.mesh);
-    
-    // Initialize enemy physics
-    enemy.initPhysics(physicsWorld.world);
-    if (enemy.body) {
-      physicsWorld.addBody(enemy.body);
-    }
+    physicsWorld.addBody(enemy.body);
   }
   
   // Create random terrain objects (obstacles) across the 1000x1000 terrain
