@@ -3,12 +3,12 @@ import { GameState, GameObject, Vehicle, InputState } from './types';
 import { createTerrain, createGround, createBoundaryWalls } from './gameObjects';
 import { PlayerTank } from './playerTank';
 import { EnemyTank } from './enemyTank';
-import { createPhysicsWorld, createObstacleBody } from './physics';
+import { PhysicsWorld, createObstacleBody } from './physics';
 
 // Set up the game state
 export function setupGame(scene: THREE.Scene): { gameState: GameState, physicsWorld: any } {
   // Create physics world
-  const physicsWorld = createPhysicsWorld();
+  const physicsWorld = new PhysicsWorld();
   
   // Create player tank
   const player = new PlayerTank();
