@@ -2,11 +2,12 @@ import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d';
 import { GameObject, Vehicle } from './types';
 import { createVehicleBody } from './physics';
+import { PhysicsBody } from './PhysicsBody';
 
 // EnemyTank class for better encapsulation and AI behavior
 export class EnemyTank implements Vehicle {
   mesh: THREE.Mesh;
-  body: RAPIER.RigidBody;
+  physics: PhysicsBody;
   speed: number;
   turnSpeed: number;
   canFire: boolean;
@@ -51,8 +52,7 @@ export class EnemyTank implements Vehicle {
     // Set initial position
     this.mesh.position.copy(position);
     
-    // Physics body will be created when the tank is added to the world
-    // For now, just initialize properties
+    // Initialize properties
     this.speed = 5;
     this.turnSpeed = 1;
     this.canFire = true;
@@ -60,59 +60,45 @@ export class EnemyTank implements Vehicle {
     this.detectionRange = 50; // How far the tank can detect the player
     this.firingRange = 30; // How far the tank can fire at the player
     this.aiUpdateInterval = 500; // Update AI every 500ms
-    
-    // The body will be set when added to the scene in game.ts
-    this.body = null;
   }
 
   initPhysics(world: RAPIER.World) {
     // Create physics body for the enemy tank
-    this.body = createVehicleBody(
+    this.physics = createVehicleBody(
       { width: 2, height: 0.75, depth: 3 },
       500,
-      world
+      world,
+      this.mesh
     );
     
     // Set initial physics body position to match mesh
     const position = this.mesh.position;
-    this.body.setTranslation({ x: position.x, y: position.y, z: position.z }, true);
-    
-    // Link the mesh to the physics body for updates
-    this.body.userData = { mesh: this.mesh };
+    this.physics.setPosition(position);
     
     // Start AI behavior
     this.startAI();
   }
 
   move(direction: number): void {
-    if (!this.body) return;
+    if (!this.physics) return;
     
     // Get current rotation to determine forward direction
-    const rotation = this.body.rotation();
-    
-    // Create a rotation quaternion
-    const quat = new THREE.Quaternion(
-      rotation.x, rotation.y, rotation.z, rotation.w
-    );
+    const rotation = this.physics.getRotation();
     
     // Calculate forward vector based on current rotation
     const forward = new THREE.Vector3(0, 0, direction);
-    forward.applyQuaternion(quat);
-    forward.multiplyScalar(this.speed);
+    forward.applyQuaternion(rotation);
     
-    // Apply impulse for immediate movement
-    this.body.applyImpulse(
-      { x: forward.x, y: forward.y, z: forward.z },
-      true
-    );
+    // Apply impulse for immediate movement, scaled by direction
+    const impulse = forward.multiplyScalar(this.speed * 2);
+    this.physics.applyImpulse(impulse);
   }
 
   turn(direction: number): void {
-    if (!this.body) return;
+    if (!this.physics) return;
     
-    // Apply torque for rotation (around Y axis)
-    const torque = { x: 0, y: direction * this.turnSpeed, z: 0 };
-    this.body.applyTorqueImpulse(torque, true);
+    // Use the simulateTreads method from PhysicsBody class
+    this.physics.simulateTreads(direction, this.turnSpeed);
   }
 
   fire(): void {
@@ -125,7 +111,12 @@ export class EnemyTank implements Vehicle {
     
     // Create projectile mesh
     const projectileGeometry = new THREE.SphereGeometry(0.2, 8, 8);
-    const projectileMaterial = new THREE.MeshStandardMaterial({ color: 0xff6600, wireframe: true });
+    const projectileMaterial = new THREE.MeshStandardMaterial({ 
+      color: 0xff6600, 
+      wireframe: true,
+      emissive: 0xff6600,
+      emissiveIntensity: 0.5
+    });
     const projectileMesh = new THREE.Mesh(projectileGeometry, projectileMaterial);
     projectileMesh.position.copy(cannonTip);
     
@@ -135,21 +126,22 @@ export class EnemyTank implements Vehicle {
       const world = window.physicsWorld.world;
       
       // Create rigid body for projectile
-      const RAPIER_MODULE = (RAPIER as any)._module;
-      const rigidBodyDesc = RAPIER_MODULE.RigidBodyDesc.dynamic()
-        .setTranslation(cannonTip.x, cannonTip.y, cannonTip.z);
+      const rigidBodyDesc = RAPIER.RigidBodyDesc.dynamic()
+        .setTranslation(cannonTip.x, cannonTip.y, cannonTip.z)
+        .setLinearDamping(0.0) // No drag for projectiles
+        .setAngularDamping(0.0);
       
       const projectileBody = world.createRigidBody(rigidBodyDesc);
       
       // Create collider
-      const colliderDesc = RAPIER_MODULE.ColliderDesc.ball(0.2);
+      const colliderDesc = RAPIER.ColliderDesc.ball(0.2);
       colliderDesc.setDensity(2.0);  // Dense projectile
       colliderDesc.setRestitution(0.6);  // Bouncy
       
       world.createCollider(colliderDesc, projectileBody);
       
-      // Link mesh to physics body
-      projectileBody.userData = { mesh: projectileMesh };
+      // Create PhysicsBody for the projectile
+      const projectilePhysics = new PhysicsBody(projectileBody, projectileMesh);
       
       // Apply velocity in the direction the tank is facing
       const forward = new THREE.Vector3(0, 0, 1);
@@ -157,22 +149,22 @@ export class EnemyTank implements Vehicle {
       forward.multiplyScalar(40); // Enemy projectile speed
       
       // Add tank's velocity to projectile velocity
-      if (this.body) {
-        const tankVel = this.body.linvel();
-        forward.add(new THREE.Vector3(tankVel.x, tankVel.y, tankVel.z));
+      if (this.physics) {
+        const tankVel = this.physics.getVelocity();
+        forward.add(tankVel);
       }
       
       // Set linear velocity of projectile
-      projectileBody.setLinvel({ x: forward.x, y: forward.y, z: forward.z }, true);
+      projectilePhysics.setVelocity(forward);
       
       scene.add(projectileMesh);
-      window.physicsWorld.addBody(projectileBody);
+      window.physicsWorld.addBody(projectilePhysics);
       
       // Add projectile to game objects
       if (window.gameState) {
         const projectile: GameObject = {
           mesh: projectileMesh,
-          body: projectileBody,
+          physics: projectilePhysics,
           update: () => {
             // Physics world will update the mesh position
           }
@@ -182,12 +174,12 @@ export class EnemyTank implements Vehicle {
         
         // Destroy projectile after 3 seconds
         setTimeout(() => {
-          if (scene && projectileMesh) {
+          if (scene && projectileMesh.parent) {
             scene.remove(projectileMesh);
           }
           
-          if (window.physicsWorld && projectileBody) {
-            window.physicsWorld.removeBody(projectileBody);
+          if (window.physicsWorld && projectilePhysics) {
+            window.physicsWorld.removeBody(projectilePhysics);
           }
           
           if (window.gameState) {

@@ -2,14 +2,17 @@ import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d';
 import { GameObject, Vehicle } from './types';
 import { createVehicleBody } from './physics';
+import { PhysicsBody } from './PhysicsBody';
 
 export class PlayerTank implements Vehicle {
   mesh: THREE.Mesh;
-  body: RAPIER.RigidBody;
+  physics: PhysicsBody;
   speed: number;
   turnSpeed: number;
+  turretRotationSpeed: number;
   canFire: boolean;
   lastFired: number;
+  private turretContainer: THREE.Object3D;
 
   constructor(position: THREE.Vector3 = new THREE.Vector3(0, 0.4, 0)) {
     // Tank body
@@ -21,96 +24,84 @@ export class PlayerTank implements Vehicle {
     this.mesh = new THREE.Mesh(tankGeometry, tankMaterial);
     
     // Create a container for the turret to help with rotations
-    const turretContainer = new THREE.Object3D();
-    turretContainer.position.set(0, 0.375, 0); // Position on top of tank body
-    this.mesh.add(turretContainer);
+    this.turretContainer = new THREE.Object3D();
+    this.turretContainer.position.set(0, 0.375, 0); // Position on top of tank body
+    this.mesh.add(this.turretContainer);
     
     // Tank turret
     const turretGeometry = new THREE.CylinderGeometry(0.5, 0.5, 0.5, 8);
     const turretMesh = new THREE.Mesh(turretGeometry, tankMaterial);
-    // Don't rotate the turret itself, only position it
     turretMesh.position.set(0, 0.25, 0); // Half the height of the turret
-    turretContainer.add(turretMesh);
+    this.turretContainer.add(turretMesh);
     
     // Tank cannon
     const cannonGeometry = new THREE.CylinderGeometry(0.1, 0.1, 2, 8);
     const cannonMaterial = new THREE.MeshStandardMaterial({
-      color: 0x008800, // Slightly darker green for contrast
+      color: 0x008800,
       wireframe: false
     });
     const cannonMesh = new THREE.Mesh(cannonGeometry, cannonMaterial);
     
-    // Properly position and rotate the cannon
-    cannonMesh.position.set(0, 0, 1.0); // Position forward of the turret
-    // Rotate to point forward (cylinders by default are along the Y axis)
+    // Position and rotate the cannon
+    cannonMesh.position.set(0, 0, 1.0);
     cannonMesh.rotation.x = Math.PI / 2;
-    turretContainer.add(cannonMesh);
+    this.turretContainer.add(cannonMesh);
     
     // Set initial position
     this.mesh.position.copy(position);
     
-    // Physics body will be created when the tank is added to the world
-    // For now, just initialize properties
-    this.speed = 150;  // Increased from 30 for stronger movement force
-    this.turnSpeed = 20;  // Increased from 12 for faster rotation
+    // Initialize properties
+    this.speed = 15;  // Reduced for better control
+    this.turnSpeed = 2;  // Reduced for better control
+    this.turretRotationSpeed = 2; // Speed of turret rotation
     this.canFire = true;
     this.lastFired = 0;
-    
-    // The body will be set when added to the scene in game.ts
-    this.body = null;
   }
 
   initPhysics(world: RAPIER.World) {
-    // Create physics body for the tank
-    this.body = createVehicleBody(
+    // Create physics body for the tank using our new PhysicsBody class
+    this.physics = createVehicleBody(
       { width: 2, height: 0.75, depth: 3 },
       500,
-      world
+      world,
+      this.mesh
     );
     
     // Set initial physics body position to match mesh
     const position = this.mesh.position;
-    this.body.setTranslation({ x: position.x, y: position.y, z: position.z }, true);
-    
-    // Link the mesh to the physics body for updates
-    this.body.userData = { mesh: this.mesh };
+    this.physics.setPosition(position);
   }
 
   move(direction: number): void {
-    if (!this.body) return;
-    
-    // Ensure the body is awake
-    this.body.wakeUp();
+    if (!this.physics) return;
     
     // Get current rotation to determine forward direction
-    const rotation = this.body.rotation();
-    
-    // Create a rotation quaternion
-    const quat = new THREE.Quaternion(
-      rotation.x, rotation.y, rotation.z, rotation.w
-    );
+    const rotation = this.physics.getRotation();
     
     // Calculate forward vector based on current rotation
     const forward = new THREE.Vector3(0, 0, direction);
-    forward.applyQuaternion(quat);
-    forward.multiplyScalar(this.speed);
+    forward.applyQuaternion(rotation);
     
-    // Apply impulse for immediate movement
-    this.body.applyImpulse(
-      { x: forward.x, y: 0, z: forward.z }, // Lock Y component to prevent jumping
-      true
-    );
+    // Apply a constant force for smoother movement
+    const force = forward.multiplyScalar(this.speed * 12);
+    this.physics.applyForce(force);
+    
+    // Apply stronger damping when not moving for quicker stops
+    if (direction === 0) {
+      this.physics.applyLinearDamping(0.7);
+    }
   }
 
   turn(direction: number): void {
-    if (!this.body) return;
+    if (!this.physics) return;
     
-    // Ensure the body is awake
-    this.body.wakeUp();
-    
-    // Apply torque for rotation (around Y axis)
-    const torque = { x: 0, y: direction * this.turnSpeed, z: 0 };
-    this.body.applyTorqueImpulse(torque, true);
+    // Use the simulateTreads method from our PhysicsBody class
+    this.physics.simulateTreads(direction, this.turnSpeed);
+  }
+
+  rotateTurret(direction: number): void {
+    // Rotate the turret container
+    this.turretContainer.rotation.y += direction * this.turretRotationSpeed * 0.02;
   }
 
   fire(): void {
@@ -118,31 +109,14 @@ export class PlayerTank implements Vehicle {
     
     console.log("Fire method called!"); // Debug logging
     
-    // Find the turret container and cannon more reliably
-    const turretContainer = this.mesh.children[0];
-    if (!turretContainer) {
-      console.error("Could not find turret container");
-      return;
-    }
-    
-    // Find the cannon mesh within the turret container
-    let cannon = null;
-    turretContainer.traverse(child => {
-      if (child instanceof THREE.Mesh && 
-          child.geometry instanceof THREE.CylinderGeometry && 
-          child.geometry.parameters.radiusTop === 0.1) {
-        cannon = child;
-      }
-    });
-    
-    if (!cannon) {
-      console.error("Could not find cannon for firing");
-      return;
-    }
+    // Use turret rotation for projectile direction instead of tank body rotation
+    const cannonTip = new THREE.Vector3(0, 0, 2);
+    cannonTip.applyQuaternion(this.turretContainer.getWorldQuaternion(new THREE.Quaternion()));
+    cannonTip.add(this.mesh.position);
     
     // Calculate the cannon tip position in world space
     const cannonWorldPosition = new THREE.Vector3();
-    cannon.getWorldPosition(cannonWorldPosition);
+    cannonTip.getWorldPosition(cannonWorldPosition);
     
     // Calculate a position at the tip of the cannon
     const forward = new THREE.Vector3(0, 0, 1);
@@ -150,9 +124,9 @@ export class PlayerTank implements Vehicle {
     forward.normalize();
     
     // Position the projectile at the tip of the cannon (a bit in front)
-    const cannonTip = cannonWorldPosition.clone().add(forward.clone().multiplyScalar(1.5));
+    const cannonTipPosition = cannonWorldPosition.clone().add(forward.clone().multiplyScalar(1.5));
     
-    console.log("Cannon tip position:", cannonTip);
+    console.log("Cannon tip position:", cannonTipPosition);
     
     // Create projectile mesh with bright, glowing material
     const projectileGeometry = new THREE.SphereGeometry(0.5, 16, 16);
@@ -163,7 +137,7 @@ export class PlayerTank implements Vehicle {
       emissiveIntensity: 0.8
     });
     const projectileMesh = new THREE.Mesh(projectileGeometry, projectileMaterial);
-    projectileMesh.position.copy(cannonTip);
+    projectileMesh.position.copy(cannonTipPosition);
     
     // Add a point light to the projectile to make it glow
     const projectileLight = new THREE.PointLight(0xffff00, 1, 10);
@@ -178,7 +152,7 @@ export class PlayerTank implements Vehicle {
       try {
         // Create rigid body for projectile
         const rigidBodyDesc = RAPIER.RigidBodyDesc.dynamic()
-          .setTranslation(cannonTip.x, cannonTip.y, cannonTip.z)
+          .setTranslation(cannonTipPosition.x, cannonTipPosition.y, cannonTipPosition.z)
           .setLinearDamping(0.0) // No drag on projectiles
           .setAngularDamping(0.0); // No angular drag
         
@@ -192,34 +166,33 @@ export class PlayerTank implements Vehicle {
         
         world.createCollider(colliderDesc, projectileBody);
         
-        // Link mesh to physics body
-        projectileBody.userData = { mesh: projectileMesh };
+        // Create a physics body for the projectile
+        const projectilePhysics = new PhysicsBody(projectileBody, projectileMesh);
         
         // Apply velocity in the direction the tank is facing
         const projectileSpeed = 100; // Increased speed
         forward.multiplyScalar(projectileSpeed); 
         
         // Add tank's velocity to projectile velocity
-        if (this.body) {
-          const tankVel = this.body.linvel();
-          forward.add(new THREE.Vector3(tankVel.x, tankVel.y, tankVel.z));
+        if (this.physics) {
+          const tankVel = this.physics.getVelocity();
+          forward.add(tankVel);
         }
         
         // Set linear velocity of projectile
-        projectileBody.setLinvel({ x: forward.x, y: forward.y, z: forward.z }, true);
-        projectileBody.wakeUp();
+        projectilePhysics.setVelocity(forward);
         
         // Add to scene
         scene.add(projectileMesh);
-        window.physicsWorld.addBody(projectileBody);
+        window.physicsWorld.addBody(projectilePhysics);
         
-        console.log("Projectile created at position:", cannonTip, "with velocity:", forward);
+        console.log("Projectile created at position:", cannonTipPosition, "with velocity:", forward);
         
         // Add projectile to game objects
         if (window.gameState) {
           const projectile: GameObject = {
             mesh: projectileMesh,
-            body: projectileBody,
+            physics: projectilePhysics,
             update: () => {} // Physics world handles updates
           };
           
@@ -232,8 +205,8 @@ export class PlayerTank implements Vehicle {
                 scene.remove(projectileMesh);
               }
               
-              if (window.physicsWorld && projectileBody) {
-                window.physicsWorld.removeBody(projectileBody);
+              if (window.physicsWorld && projectilePhysics) {
+                window.physicsWorld.removeBody(projectilePhysics);
               }
               
               if (window.gameState) {

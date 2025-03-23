@@ -1,31 +1,33 @@
-// Use dynamic import pattern
-import { PhysicsWorld } from './types';
+import { PhysicsWorld as PhysicsWorldInterface } from './types';
 import RAPIER from '@dimforge/rapier3d';
+import * as THREE from 'three';
+import { PhysicsBody } from './PhysicsBody';
 
-export function createPhysicsWorld(): PhysicsWorld {
-  // Create a physics world
-  const gravity = { x: 0.0, y: -9.81, z: 0.0 };
-  
-  const world = new RAPIER.World(gravity);
-  
-  // List to track all physics bodies
-  const bodies: RAPIER.RigidBody[] = [];
-  
-  // Create ground plane
-  const groundColliderDesc = RAPIER.ColliderDesc.cuboid(500.0, 0.1, 500.0)
-    .setTranslation(0, -0.1, 0);
-  world.createCollider(groundColliderDesc);
-  
-  // Physics world update function
-  const update = (deltaTime: number) => {
+// PhysicsWorld class implementation
+export class PhysicsWorld implements PhysicsWorldInterface {
+  world: RAPIER.World;
+  bodies: PhysicsBody[] = [];
+
+  constructor(gravity = { x: 0.0, y: -9.81, z: 0.0 }) {
+    // Create the RAPIER physics world with the specified gravity
+    this.world = new RAPIER.World(gravity);
+    
+    // Create ground plane as a static collider
+    const groundColliderDesc = RAPIER.ColliderDesc.cuboid(500.0, 0.1, 500.0)
+      .setTranslation(0, -0.1, 0);
+    this.world.createCollider(groundColliderDesc);
+  }
+
+  // Update the physics simulation and sync objects
+  update(deltaTime: number): void {
     // Step the physics simulation
-    world.step();
+    this.world.step();
     
     // Check for invalid bodies before updating
-    const validBodies = bodies.filter(body => {
+    const validBodies = this.bodies.filter(physicsBody => {
       try {
         // This will throw an error if the body has been removed but is still in our array
-        body.translation();
+        physicsBody.body.translation();
         return true;
       } catch (e) {
         console.warn("Found invalid physics body, removing from tracking");
@@ -34,56 +36,53 @@ export function createPhysicsWorld(): PhysicsWorld {
     });
     
     // Replace our bodies array with only valid bodies
-    if (validBodies.length !== bodies.length) {
-      bodies.length = 0;
-      bodies.push(...validBodies);
+    if (validBodies.length !== this.bodies.length) {
+      this.bodies.length = 0;
+      this.bodies.push(...validBodies);
     }
     
     // Update all physics objects
-    for (let i = 0; i < bodies.length; i++) {
-      const body = bodies[i];
-      if (body.userData && body.userData.mesh) {
-        try {
-          const position = body.translation();
-          const rotation = body.rotation();
-          
-          // Update mesh position and rotation from physics body
-          body.userData.mesh.position.set(position.x, position.y, position.z);
-          body.userData.mesh.quaternion.set(rotation.x, rotation.y, rotation.z, rotation.w);
-        } catch (e) {
-          console.error("Error updating body:", e);
-        }
+    for (let i = 0; i < this.bodies.length; i++) {
+      const physicsBody = this.bodies[i];
+      try {
+        const position = physicsBody.getPosition();
+        const rotation = physicsBody.getRotation();
+        
+        // Update mesh position and rotation from physics body
+        physicsBody.mesh.position.copy(position);
+        physicsBody.mesh.quaternion.copy(rotation);
+      } catch (e) {
+        console.error("Error updating body:", e);
       }
     }
-  };
-  
+  }
+
   // Add a body to the physics world
-  const addBody = (body: RAPIER.RigidBody) => {
-    bodies.push(body);
-  };
+  addBody(physicsBody: PhysicsBody): void {
+    this.bodies.push(physicsBody);
+  }
 
   // Remove a body from the physics world
-  const removeBody = (body: RAPIER.RigidBody) => {
-    const index = bodies.indexOf(body);
+  removeBody(physicsBody: PhysicsBody): void {
+    const index = this.bodies.indexOf(physicsBody);
     if (index !== -1) {
-      bodies.splice(index, 1);
-      world.removeRigidBody(body);
+      this.bodies.splice(index, 1);
+      this.world.removeRigidBody(physicsBody.body);
     }
-  };
-  
-  return { world, bodies, update, addBody, removeBody };
+  }
 }
 
 export function createVehicleBody(
   size: { width: number, height: number, depth: number }, 
   mass: number,
-  world: RAPIER.World
-): RAPIER.RigidBody {
-  // Create rigid body description
+  world: RAPIER.World,
+  mesh: THREE.Object3D
+): PhysicsBody {
+  // Create rigid body description with very high friction for stable movement
   const rigidBodyDesc = RAPIER.RigidBodyDesc.dynamic()
     .setTranslation(0, size.height / 2, 0)
-    .setLinearDamping(0.1)  // Reduced from 0.5
-    .setAngularDamping(0.2); // Reduced from 0.5
+    .setLinearDamping(4.0)     // Much higher linear damping to reduce sliding
+    .setAngularDamping(3.0);   // Much higher angular damping to reduce spinning
   
   const body = world.createRigidBody(rigidBodyDesc);
   
@@ -94,23 +93,28 @@ export function createVehicleBody(
     size.depth / 2
   );
   
-  // Set mass properties
-  colliderDesc.setDensity(mass / (size.width * size.height * size.depth));
-  colliderDesc.setFriction(0.7);    // Increased from 0.5 for better grip
-  colliderDesc.setRestitution(0.1); // Reduced from 0.2 for less bouncing
+  // Set mass properties for better tank-like inertia
+  const density = mass / (size.width * size.height * size.depth);
+  colliderDesc.setDensity(density);
+  
+  // Very high friction to prevent sliding
+  colliderDesc.setFriction(4.0);
+  colliderDesc.setRestitution(0.0); // No bounce
   
   // Attach collider to body
   world.createCollider(colliderDesc, body);
   
-  return body;
+  // Create PhysicsBody instance
+  return new PhysicsBody(body, mesh);
 }
 
 export function createObstacleBody(
   size: { width: number, height: number, depth: number }, 
   position: { x: number, y: number, z: number },
   world: RAPIER.World,
+  mesh: THREE.Object3D,
   mass: number = 0
-): RAPIER.RigidBody {
+): PhysicsBody {
   // Create appropriate rigid body based on mass
   const rigidBodyDesc = mass === 0 
     ? RAPIER.RigidBodyDesc.fixed()
@@ -146,5 +150,6 @@ export function createObstacleBody(
   // Attach collider to body
   world.createCollider(colliderDesc, body);
   
-  return body;
+  // Create PhysicsBody instance
+  return new PhysicsBody(body, mesh);
 }

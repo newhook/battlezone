@@ -1,169 +1,211 @@
 import * as THREE from 'three';
+import RAPIER from '@dimforge/rapier3d';
 import { GameObject } from './types';
 import { createObstacleBody } from './physics';
-import RAPIER from '@dimforge/rapier3d';
 
-// Create terrain blocks (obstacles)
+// Create ground plane
+export function createGround(size: number): GameObject {
+  const groundGeometry = new THREE.PlaneGeometry(size, size);
+  const groundMaterial = new THREE.MeshStandardMaterial({
+    color: 0x333333,
+    roughness: 0.8,
+    metalness: 0.2,
+    wireframe: false,
+    side: THREE.DoubleSide
+  });
+  
+  const groundMesh = new THREE.Mesh(groundGeometry, groundMaterial);
+  groundMesh.rotation.x = -Math.PI / 2; // Rotate to be horizontal
+  groundMesh.position.y = 0;
+  groundMesh.receiveShadow = true;
+  
+  // Add a grid for visual reference
+  const gridHelper = new THREE.GridHelper(size, size / 10);
+  gridHelper.position.y = 0.01; // Slightly above ground to prevent z-fighting
+  groundMesh.add(gridHelper);
+  
+  // Return as a game object (no physics needed as we have a static ground collider)
+  return { mesh: groundMesh };
+}
+
+// Create terrain objects
 export function createTerrain(positions: THREE.Vector3[], world: RAPIER.World): GameObject[] {
   const terrain: GameObject[] = [];
   
-  // Colors for terrain blocks (more vibrant for solid material)
-  const colors = [0x3355ff, 0x33cc33, 0x9933cc, 0xff9900, 0x00cccc];
-  
   positions.forEach(position => {
-    // Random size for each obstacle
-    const size = 3 + Math.random() * 8; // Between 3 and 11 units
+    // Randomize size
+    const width = 2 + Math.random() * 3; // 2-5 units wide
+    const height = 3 + Math.random() * 5; // 3-8 units tall
+    const depth = 2 + Math.random() * 3; // 2-5 units deep
     
-    // Random shape - either box or cylinder
-    let geometry, body;
-    let height: number;
-    const shapeType = Math.random() > 0.7 ? 'cylinder' : 'box';
-    
-    if (shapeType === 'box') {
-      // Box with slightly random proportions
-      const width = size * (0.8 + Math.random() * 0.4);
-      height = size * (0.8 + Math.random() * 0.4);
-      const depth = size * (0.8 + Math.random() * 0.4);
-      
-      geometry = new THREE.BoxGeometry(width, height, depth);
-      
-      // Create the box collider
-      body = createObstacleBody(
-        { width, height, depth },
-        // Position the obstacle so its bottom is at ground level (y=0)
-        { x: position.x, y: height / 2, z: position.z },
-        world,
-        0 // Zero mass for static obstacle
-      );
-    } else {
-      // Cylinder
-      const radius = size / 2;
-      height = size * (0.8 + Math.random() * 0.4);
-      geometry = new THREE.CylinderGeometry(radius, radius, height, 16); // Increased segments for smoother look
-      
-      // For cylinders, use a cylinder collider (approximated as a box for now)
-      body = createObstacleBody(
-        { width: radius * 2, height: height, depth: radius * 2 },
-        // Position the obstacle so its bottom is at ground level (y=0)
-        { x: position.x, y: height / 2, z: position.z },
-        world,
-        0 // Zero mass for static obstacle
-      );
-    }
-    
-    // Random rotation for variety - only for visual mesh, not physics
-    const rotation = Math.random() * Math.PI * 2;
-    
-    // Random color from the palette
-    const color = colors[Math.floor(Math.random() * colors.length)];
-    const material = new THREE.MeshStandardMaterial({ 
-      color: color, 
-      wireframe: false, 
-      metalness: 0.3,
-      roughness: 0.7
+    // Create mesh
+    const geometry = new THREE.BoxGeometry(width, height, depth);
+    const material = new THREE.MeshStandardMaterial({
+      color: 0x8866ff,
+      roughness: 0.7,
+      metalness: 0.2,
+      wireframe: false
     });
-    
     const mesh = new THREE.Mesh(geometry, material);
     
-    // Position the visual mesh to match the physics body position
-    // We set the physics body's y to height/2 above, so we need to do the same here
+    // Position mesh (y position adjusted to sit on ground)
     mesh.position.set(position.x, height / 2, position.z);
-    mesh.rotation.y = rotation;
     
-    // Link the mesh to the physics body for debugging
-    if (body) {
-      body.userData = { mesh }; 
-    }
+    // Create physics body
+    const physics = createObstacleBody(
+      { width, height, depth },
+      { x: position.x, y: height / 2, z: position.z },
+      world,
+      mesh
+    );
     
-    // Create terrain object
-    const terrainBlock: GameObject = {
-      mesh,
-      body,
-      update: () => {} // Static objects don't need updates
-    };
-    
-    terrain.push(terrainBlock);
+    // Add to terrain array
+    terrain.push({ mesh, physics });
   });
   
   return terrain;
 }
 
-// Create the game world boundary walls
+// Create boundary walls
 export function createBoundaryWalls(size: number, world: RAPIER.World): GameObject[] {
-  const walls: GameObject[] = [];
-  const wallHeight = 8;
+  const wallHeight = 5;
   const wallThickness = 2;
+  const halfSize = size / 2;
   
-  // Materials
-  const wallMaterial = new THREE.MeshStandardMaterial({ 
-    color: 0x555555, 
-    wireframe: false,
-    metalness: 0.2,
-    roughness: 0.8
-  });
-  
-  // Create four walls around the play area
-  const wallPositions = [
-    { pos: new THREE.Vector3(0, 0, size / 2 + wallThickness / 2), size: new THREE.Vector3(size + wallThickness * 2, wallHeight, wallThickness) }, // North wall
-    { pos: new THREE.Vector3(0, 0, -size / 2 - wallThickness / 2), size: new THREE.Vector3(size + wallThickness * 2, wallHeight, wallThickness) }, // South wall
-    { pos: new THREE.Vector3(size / 2 + wallThickness / 2, 0, 0), size: new THREE.Vector3(wallThickness, wallHeight, size) }, // East wall
-    { pos: new THREE.Vector3(-size / 2 - wallThickness / 2, 0, 0), size: new THREE.Vector3(wallThickness, wallHeight, size) }  // West wall
+  // Wall positions and dimensions
+  const wallsConfig = [
+    // North wall
+    {
+      position: new THREE.Vector3(0, wallHeight / 2, -halfSize),
+      size: { width: size, height: wallHeight, depth: wallThickness }
+    },
+    // South wall
+    {
+      position: new THREE.Vector3(0, wallHeight / 2, halfSize),
+      size: { width: size, height: wallHeight, depth: wallThickness }
+    },
+    // East wall
+    {
+      position: new THREE.Vector3(halfSize, wallHeight / 2, 0),
+      size: { width: wallThickness, height: wallHeight, depth: size }
+    },
+    // West wall
+    {
+      position: new THREE.Vector3(-halfSize, wallHeight / 2, 0),
+      size: { width: wallThickness, height: wallHeight, depth: size }
+    }
   ];
   
-  wallPositions.forEach(wall => {
-    // Create visual mesh
-    const geometry = new THREE.BoxGeometry(wall.size.x, wall.size.y, wall.size.z);
-    const mesh = new THREE.Mesh(geometry, wallMaterial);
-    mesh.position.copy(wall.pos);
+  const walls: GameObject[] = [];
+  
+  // Create each wall
+  wallsConfig.forEach(config => {
+    const { position, size } = config;
+    
+    // Create mesh
+    const geometry = new THREE.BoxGeometry(size.width, size.height, size.depth);
+    const material = new THREE.MeshStandardMaterial({
+      color: 0x66aaff,
+      roughness: 0.8,
+      metalness: 0.1,
+      wireframe: false,
+      transparent: true,
+      opacity: 0.6
+    });
+    const mesh = new THREE.Mesh(geometry, material);
+    
+    // Set position
+    mesh.position.copy(position);
     
     // Create physics body
-    const body = createObstacleBody(
-      { width: wall.size.x, height: wall.size.y, depth: wall.size.z },
-      { x: wall.pos.x, y: wall.pos.y, z: wall.pos.z },
+    const physics = createObstacleBody(
+      size,
+      { x: position.x, y: position.y, z: position.z },
       world,
+      mesh
     );
     
-    // Create wall object
-    const wallObject: GameObject = {
-      mesh,
-      body,
-      update: () => {} // Static objects don't need updates
-    };
-    
-    walls.push(wallObject);
+    // Add to walls array
+    walls.push({ mesh, physics });
   });
   
   return walls;
 }
 
-// Create ground plane
-export function createGround(size: number): GameObject {
-  // Create a more detailed plane for the large terrain
-  const geometry = new THREE.PlaneGeometry(size, size, 128, 128);
+// Create a checkpoint object
+export function createCheckpoint(
+  position: THREE.Vector3, 
+  world: RAPIER.World,
+  isActive: boolean = false
+): GameObject {
+  // Checkpoint dimensions
+  const width = 5;
+  const height = 0.5;
+  const depth = 5;
   
-  // Create a grid pattern for the ground
-  const material = new THREE.MeshStandardMaterial({ 
-    color: 0x222222,
-    wireframe: false,
-    metalness: 0.1,
-    roughness: 0.9,
-    side: THREE.DoubleSide
+  // Create mesh
+  const geometry = new THREE.BoxGeometry(width, height, depth);
+  const material = new THREE.MeshStandardMaterial({
+    color: isActive ? 0x00ff00 : 0xff0000,
+    emissive: isActive ? 0x00ff00 : 0xff0000,
+    emissiveIntensity: 0.5,
+    transparent: true,
+    opacity: 0.7,
+    wireframe: false
   });
-  
   const mesh = new THREE.Mesh(geometry, material);
-  mesh.rotation.x = -Math.PI / 2; // Rotate to lie flat on XZ plane
-  mesh.position.y = 0;
   
-  // Add a grid helper to help with spatial awareness
-  const gridHelper = new THREE.GridHelper(size, 50, 0x444444, 0x333333);
-  gridHelper.position.y = 0.01; // Slightly above ground to avoid z-fighting
-  gridHelper.rotation.x = -Math.PI / 2; // Rotate to lie flat on XZ plane
-  mesh.add(gridHelper);
+  // Set position
+  mesh.position.copy(position);
   
-  // Ground doesn't need a physics body as it's already created in the physics world
+  // Create physics body (no collision, just a trigger)
+  const rigidBodyDesc = RAPIER.RigidBodyDesc.fixed()
+    .setTranslation(position.x, position.y, position.z);
   
+  const body = world.createRigidBody(rigidBodyDesc);
+  
+  // Create sensor collider
+  const colliderDesc = RAPIER.ColliderDesc.cuboid(width / 2, height / 2, depth / 2)
+    .setSensor(true); // This is a sensor/trigger
+  
+  const collider = world.createCollider(colliderDesc, body);
+  
+  // Store additional data
+  mesh.userData.isCheckpoint = true;
+  mesh.userData.isActive = isActive;
+  
+  // Create the physics body using our helper function
+  const physics = createObstacleBody(
+    { width, height, depth },
+    { x: position.x, y: position.y, z: position.z },
+    world,
+    mesh,
+    0 // Zero mass means static
+  );
+  
+  // Override the collider to be a sensor
+  const newCollider = physics.body.collider(0);
+  if (newCollider) {
+    newCollider.setSensor(true);
+  }
+  
+  // Return the checkpoint object
   return {
     mesh,
-    update: () => {} // Ground doesn't need updates
+    physics,
+    update: () => {
+      // Make checkpoint rotate slowly
+      mesh.rotation.y += 0.01;
+      
+      // Make it bob up and down slightly
+      const offset = Math.sin(Date.now() * 0.002) * 0.2;
+      mesh.position.y = position.y + offset;
+      
+      // Update physics position too
+      if (physics) {
+        const currentPos = physics.getPosition();
+        physics.setPosition(new THREE.Vector3(currentPos.x, position.y + offset, currentPos.z));
+      }
+    }
   };
 }

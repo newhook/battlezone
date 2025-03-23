@@ -1,297 +1,205 @@
 import * as THREE from 'three';
-import { GameState, GameObject, Vehicle, InputState } from './types';
-import { createTerrain, createBoundaryWalls, createGround } from './gameObjects';
+import { GameState, InputState, PhysicsWorld as PhysicsWorldInterface } from './types';
 import { PlayerTank } from './playerTank';
 import { EnemyTank } from './enemyTank';
-import { createPhysicsWorld, createObstacleBody } from './physics';
+import { createTerrain, createBoundaryWalls, createGround } from './gameObjects';
+import { PhysicsWorld } from './physics';
 
-// Set up the game state
-export function setupGame(scene: THREE.Scene): { gameState: GameState, physicsWorld: any } {
-  // Create physics world
-  const physicsWorld = createPhysicsWorld();
+// Create game state and initialize the game world
+export function setupGame(scene: THREE.Scene): { gameState: GameState, physicsWorld: PhysicsWorldInterface } {
+  // Initialize physics world
+  const physicsWorld = new PhysicsWorld();
   
-  // Create player tank
+  // Make physics world globally accessible (for easier debugging and projectile creation)
+  window.physicsWorld = physicsWorld;
+  
+  // Create the player's tank
   const player = new PlayerTank();
+  player.initPhysics(physicsWorld.world);
   scene.add(player.mesh);
   
-  // Initialize player physics
-  player.initPhysics(physicsWorld.world);
-  physicsWorld.addBody(player.body);
+  // Create enemy tanks
+  const enemies: EnemyTank[] = [];
+  const maxEnemies = 5; // Number of enemy tanks in the scene
   
-  // Create more enemy tanks spread across the large terrain
-  const enemies: Vehicle[] = [];
-  
-  // Add 10 enemy tanks at random positions
-  for (let i = 0; i < 10; i++) {
-    // Random position far from player start
-    let x = 0, z = 0;
-    do {
-      x = (Math.random() * 960) - 480; // Keep tanks within the boundary
-      z = (Math.random() * 960) - 480;
-    } while (Math.sqrt(x*x + z*z) < 100); // Keep at least 100 units away from origin
+  // Calculate enemy positions in a ring around the player
+  for (let i = 0; i < maxEnemies; i++) {
+    // Position in a circle around the play area (50 units away)
+    const angle = (i / maxEnemies) * Math.PI * 2; 
+    const distance = 50 + Math.random() * 20; // Between 50-70 units away
+    const x = Math.sin(angle) * distance;
+    const z = Math.cos(angle) * distance;
     
-    const enemy = new EnemyTank(new THREE.Vector3(x, 0, z));
-    enemies.push(enemy);
-    scene.add(enemy.mesh);
-    
-    // Initialize enemy physics
+    // Create the enemy tank
+    const enemy = new EnemyTank(new THREE.Vector3(x, 0.4, z));
     enemy.initPhysics(physicsWorld.world);
-    physicsWorld.addBody(enemy.body);
+    
+    scene.add(enemy.mesh);
+    enemies.push(enemy);
   }
   
-  // Create random terrain objects (obstacles) across the 1000x1000 terrain
+  // Create terrain obstacles (random blockers in the scene)
   const terrainPositions: THREE.Vector3[] = [];
+  const maxObstacles = 20;
   
-  // Generate 200 random obstacle positions
-  for (let i = 0; i < 200; i++) {
-    // Calculate random position but avoid area around player (0,0)
-    let x = 0, z = 0;
+  // Distribute obstacles in clusters for more natural grouping
+  for (let cluster = 0; cluster < 5; cluster++) {
+    // Create a cluster center
+    const centerX = (Math.random() - 0.5) * 80;
+    const centerZ = (Math.random() - 0.5) * 80;
     
-    // Make sure obstacles aren't too close to the starting position (0,0)
-    do {
-      x = (Math.random() * 980) - 490; // Range from -490 to 490
-      z = (Math.random() * 980) - 490; // Range from -490 to 490
-    } while (Math.sqrt(x*x + z*z) < 20); // Keep at least 20 units away from origin
+    // Add 3-6 obstacles per cluster
+    const obstaclesInCluster = 3 + Math.floor(Math.random() * 4);
     
-    // Set Y position to half the obstacle height to place it on the ground
-    // We'll adjust this in createTerrain to ensure the bottom of the object is at ground level
-    const y = 0; 
-    
-    terrainPositions.push(new THREE.Vector3(x, y, z));
+    for (let i = 0; i < obstaclesInCluster; i++) {
+      // Position within the cluster (within 5-15 units of cluster center)
+      const radius = 5 + Math.random() * 10;
+      const angle = Math.random() * Math.PI * 2;
+      const x = centerX + Math.sin(angle) * radius;
+      const z = centerZ + Math.cos(angle) * radius;
+      
+      // Avoid placing obstacles too close to the player's starting position
+      const distFromPlayer = Math.sqrt(x * x + z * z);
+      if (distFromPlayer > 15) {
+        terrainPositions.push(new THREE.Vector3(x, 0, z));
+      }
+      
+      // Limit total obstacles
+      if (terrainPositions.length >= maxObstacles) break;
+    }
   }
   
-  const terrain = createTerrain(terrainPositions,physicsWorld.world);
-  terrain.forEach(obj => {
-    scene.add(obj.mesh);
-    
-    // We don't need to create physics bodies here since they're already created in createTerrain
-    // Just add the existing body to the physics world
-    if (obj.body) {
-      physicsWorld.addBody(obj.body);
+  // Create terrain objects
+  const terrain = createTerrain(terrainPositions, physicsWorld.world);
+  terrain.forEach(object => {
+    scene.add(object.mesh);
+    if (object.physics) {
+      physicsWorld.addBody(object.physics);
     }
   });
   
-  // Create boundary walls (expanded to 1000 x 1000)
-  const walls: GameObject[] = [];
-  // const walls = createBoundaryWalls(500, physicsWorld.world);
-  // walls.forEach(wall => {
-  //   scene.add(wall.mesh);
-    
-  //   // Create wall physics bodies
-  //   const size = {
-  //     width: wall.mesh.scale.x,
-  //     height: wall.mesh.scale.y,
-  //     depth: wall.mesh.scale.z
-  //   };
-    
-  //   const position = {
-  //     x: wall.mesh.position.x,
-  //     y: wall.mesh.position.y,
-  //     z: wall.mesh.position.z
-  //   };
-    
-  //   // Create physics body for wall
-  //   wall.body = createObstacleBody(size, position, physicsWorld.world, 0);
-  //   wall.body.userData = { mesh: wall.mesh };
-  //   physicsWorld.addBody(wall.body);
-  // });
+  // Create boundary walls
+  const walls = createBoundaryWalls(100, physicsWorld.world);
+  walls.forEach(wall => {
+    scene.add(wall.mesh);
+    if (wall.physics) {
+      physicsWorld.addBody(wall.physics);
+    }
+  });
   
-  // Create ground (expanded to 1000 x 1000)
-  const ground = createGround(1000);
+  // Create ground
+  const ground = createGround(200); // Create a 200x200 ground plane
   scene.add(ground.mesh);
-  
-  // All objects in one array
-  const allTerrain: GameObject[] = [...terrain, ...walls, ground];
   
   // Initialize game state
   const gameState: GameState = {
     player,
     enemies,
-    terrain: allTerrain,
+    terrain,
     projectiles: [],
     score: 0,
     gameOver: false
   };
   
-  // Store references in window for cross-module access
+  // Make game state globally accessible
   window.gameState = gameState;
-  window.physicsWorld = physicsWorld;
   
   return { gameState, physicsWorld };
 }
 
-// Update game logic
-export function updateGame(gameState: GameState, input: InputState, physicsWorld: any, deltaTime: number) {
+// Update game logic based on input
+export function updateGame(
+  gameState: GameState, 
+  input: InputState, 
+  physicsWorld: PhysicsWorldInterface, 
+  deltaTime: number
+): void {
   if (gameState.gameOver) return;
+  
+  // Update player tank based on input
+  const player = gameState.player;
+  
+  // Apply movement forces based on input
+  if (input.forward) {
+    player.move(1);
+  } else if (input.backward) {
+    player.move(-1);
+  } else {
+    player.move(0); // Apply no force but handle damping
+  }
+  
+  // Apply turning forces
+  if (input.left) {
+    player.turn(-1);
+  } else if (input.right) {
+    player.turn(1);
+  }
+  
+  // Turret rotation
+  if (input.turretLeft) {
+    player.rotateTurret(-1);
+  } else if (input.turretRight) {
+    player.rotateTurret(1);
+  }
+  
+  // Handle firing
+  if (input.fire && player.canFire && Date.now() - player.lastFired > 500) {
+    player.fire();
+  }
   
   // Update physics world
   physicsWorld.update(deltaTime);
   
-  // Handle player input
-  if (input.forward) {
-    gameState.player.move(1);
-  }
-  if (input.backward) {
-    gameState.player.move(-1);
-  }
-  if (input.left) {
-    gameState.player.turn(1);
-  }
-  if (input.right) {
-    gameState.player.turn(-1);
-  }
+  // Call update method for any game objects that need custom updates
+  if (player.update) player.update();
   
-  // Handle firing with debug info
-  if (input.fire) {
-    console.log("Fire button pressed, canFire =", gameState.player.canFire);
-    
-    // Visual feedback when trying to fire
-    const feedbackDiv = document.createElement('div');
-    feedbackDiv.textContent = gameState.player.canFire ? "FIRING!" : "COOLING DOWN...";
-    feedbackDiv.style.position = 'absolute';
-    feedbackDiv.style.top = '180px';
-    feedbackDiv.style.left = '10px';
-    feedbackDiv.style.color = gameState.player.canFire ? '#ffff00' : '#ff6600';
-    feedbackDiv.style.fontFamily = 'monospace';
-    feedbackDiv.style.fontSize = '16px';
-    feedbackDiv.style.padding = '5px';
-    feedbackDiv.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-    feedbackDiv.style.border = '1px solid #00ff00';
-    feedbackDiv.style.transition = 'opacity 0.5s ease-in-out';
-    feedbackDiv.style.opacity = '1';
-    document.body.appendChild(feedbackDiv);
-    
-    // Remove after a short time
-    setTimeout(() => {
-      feedbackDiv.style.opacity = '0';
-      setTimeout(() => document.body.removeChild(feedbackDiv), 500);
-    }, 1000);
-    
-    gameState.player.fire();
-  }
-  
-  // Update player
-  if (gameState.player.update) {
-    gameState.player.update();
-  }
-  
-  // Update enemies with AI
+  // Update enemy tanks
   gameState.enemies.forEach(enemy => {
-    // Update enemy position and AI
-    if (enemy.update) {
-      enemy.update();
-    }
+    if (enemy.update) enemy.update();
   });
   
-  // Update projectiles and check for collisions
-  for (let i = gameState.projectiles.length - 1; i >= 0; i--) {
-    const projectile = gameState.projectiles[i];
+  // Update projectiles
+  gameState.projectiles.forEach(projectile => {
+    if (projectile.update) projectile.update();
     
-    // Skip invalid projectiles
-    if (!projectile.body || !projectile.mesh) {
-      continue;
-    }
-    
-    try {
-      // Check if projectile is still valid (this will throw if the physics body is invalid)
-      const projectilePos = projectile.body.translation();
-      
-      // Check if projectile has gone too far away (optimization)
-      const distanceFromOrigin = Math.sqrt(
-        projectilePos.x * projectilePos.x + 
-        projectilePos.y * projectilePos.y + 
-        projectilePos.z * projectilePos.z
-      );
-      
-      // If projectile has gone too far, remove it
-      if (distanceFromOrigin > 1000) {
-        if (projectile.mesh.parent) {
-          projectile.mesh.parent.remove(projectile.mesh);
-        }
-        
-        if (physicsWorld) {
-          physicsWorld.removeBody(projectile.body);
-        }
-        
-        gameState.projectiles.splice(i, 1);
-        continue;
-      }
-      
-      // Check collision with each enemy
-      for (let j = gameState.enemies.length - 1; j >= 0; j--) {
-        const enemy = gameState.enemies[j];
-        
-        if (!enemy.body || !enemy.mesh) {
-          continue;
-        }
-        
-        try {
-          const enemyPos = enemy.body.translation();
-          
-          // Calculate distance for collision detection
-          const distance = Math.sqrt(
-            Math.pow(projectilePos.x - enemyPos.x, 2) +
-            Math.pow(projectilePos.y - enemyPos.y, 2) +
-            Math.pow(projectilePos.z - enemyPos.z, 2)
-          );
-          
-          // Check if collision occurred
-          if (distance < 2) { // Collision threshold
-            console.log("Hit enemy at distance:", distance);
-            
-            // Create explosion effect
-            createExplosion(enemyPos, scene);
-            
-            // Remove enemy from scene
-            if (enemy.mesh.parent) {
-              enemy.mesh.parent.remove(enemy.mesh);
-            }
-            
-            // Remove enemy from physics world
-            if (enemy.body) {
-              physicsWorld.removeBody(enemy.body);
-              
-              // Stop AI behavior
-              if (enemy instanceof EnemyTank) {
-                enemy.stopAI();
-              }
-            }
-            
-            // Remove projectile from scene
-            if (projectile.mesh.parent) {
-              projectile.mesh.parent.remove(projectile.mesh);
-            }
-            
-            // Remove projectile from physics world
-            if (projectile.body) {
-              physicsWorld.removeBody(projectile.body);
-            }
-            
-            // Remove from arrays
-            gameState.enemies.splice(j, 1);
-            gameState.projectiles.splice(i, 1);
-            
-            // Increase score
-            gameState.score += 100;
-            updateScoreDisplay(gameState.score);
-            
-            // Break inner loop since projectile is now removed
-            break;
-          }
-        } catch (e) {
-          console.error("Error checking enemy collision:", e);
-        }
-      }
-    } catch (e) {
-      console.warn("Invalid projectile found, removing", e);
-      
-      // Clean up invalid projectile
-      if (projectile.mesh && projectile.mesh.parent) {
+    // Check for out-of-bounds projectiles
+    if (projectile.mesh.position.length() > 200) {
+      // Remove from scene and physics world
+      if (projectile.mesh.parent) {
         projectile.mesh.parent.remove(projectile.mesh);
       }
       
-      gameState.projectiles.splice(i, 1);
+      if (projectile.physics && physicsWorld) {
+        physicsWorld.removeBody(projectile.physics);
+      }
+      
+      // Mark for removal from game state
+      projectile.mesh.userData.removed = true;
     }
+  });
+  
+  // Clean up removed projectiles
+  gameState.projectiles = gameState.projectiles.filter(p => !p.mesh.userData.removed);
+  
+  // Update score display 
+  const scoreElement = document.getElementById('score');
+  if (scoreElement) {
+    scoreElement.textContent = `SCORE: ${gameState.score}`;
+  }
+  
+  // Check for collisions (handled by physics world)
+  // ...
+  
+  // Check for enemies destroyed
+  gameState.enemies = gameState.enemies.filter(enemy => {
+    // For now, keep all enemies
+    return true;
+  });
+  
+  // Check win/lose conditions
+  if (gameState.enemies.length === 0) {
+    // All enemies destroyed - win condition
+    console.log('All enemies destroyed! Victory!');
   }
 }
 

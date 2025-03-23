@@ -1,271 +1,128 @@
 import * as THREE from 'three';
-import { initScene, updateCamera } from './scene';
 import { setupGame, updateGame } from './game';
-import { setupInputHandlers } from './input';
+import { createInputHandler } from './input';
 import { FlyCamera } from './flyCamera';
+import { PhysicsWorld } from './physics';
+import './style.css';
 
-// Function to initialize the app
-async function init() {
-  try {
-    console.log('Init function starting');
-    const loadingElement = document.getElementById('loading');
+// Set up the renderer
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+
+// Add canvas to the document
+document.body.appendChild(renderer.domElement);
+
+// Create a scene
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x88ccff);
+
+// Add fog for distance fading
+scene.fog = new THREE.Fog(0x88ccff, 50, 150);
+
+// Create a camera
+const camera = new THREE.PerspectiveCamera(
+  75, window.innerWidth / window.innerHeight, 0.1, 1000
+);
+
+// Position the camera
+camera.position.set(0, 12, -15);
+camera.lookAt(0, 0, 0);
+
+// Create a fly camera controller
+const flyCamera = new FlyCamera(camera);
+
+// Set up lighting
+const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+directionalLight.position.set(10, 15, 10);
+directionalLight.castShadow = true;
+
+// Improve shadow map quality
+directionalLight.shadow.mapSize.width = 2048;
+directionalLight.shadow.mapSize.height = 2048;
+directionalLight.shadow.camera.near = 0.5;
+directionalLight.shadow.camera.far = 50;
+directionalLight.shadow.bias = -0.001;
+
+// Expand shadow camera frustum for larger scene coverage
+const shadowSize = 20;
+directionalLight.shadow.camera.left = -shadowSize;
+directionalLight.shadow.camera.right = shadowSize;
+directionalLight.shadow.camera.top = shadowSize;
+directionalLight.shadow.camera.bottom = -shadowSize;
+
+scene.add(directionalLight);
+
+// Add ambient light for better overall illumination
+const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
+scene.add(ambientLight);
+
+// Create UI elements
+const scoreDisplay = document.createElement('div');
+scoreDisplay.style.position = 'absolute';
+scoreDisplay.style.top = '10px';
+scoreDisplay.style.left = '10px';
+scoreDisplay.style.color = 'white';
+scoreDisplay.style.fontFamily = '"Press Start 2P", monospace';
+scoreDisplay.style.fontSize = '16px';
+scoreDisplay.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+scoreDisplay.style.padding = '10px';
+scoreDisplay.style.borderRadius = '5px';
+scoreDisplay.id = 'score';
+scoreDisplay.textContent = 'SCORE: 0';
+document.body.appendChild(scoreDisplay);
+
+// Set up game state with physics
+const { gameState, physicsWorld } = setupGame(scene);
+
+// Create input handler
+const input = createInputHandler();
+
+// Handle window resize
+window.addEventListener('resize', () => {
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+  
+  renderer.setSize(width, height);
+  camera.aspect = width / height;
+  camera.updateProjectionMatrix();
+});
+
+// Run game loop
+function animate() {
+  requestAnimationFrame(animate);
+  
+  const deltaTime = 1/60; // Fixed time step for physics
+  
+  // Update game state based on input
+  updateGame(gameState, input, physicsWorld, deltaTime);
+  
+  // Update camera position to follow player
+  const player = gameState.player;
+  
+  // Position the camera relative to the player's position and orientation
+  if (player && player.mesh) {
+    const playerPosition = player.mesh.position;
+    const playerDirection = new THREE.Vector3(0, 0, 1).applyQuaternion(player.mesh.quaternion);
     
-    // Initialize the scene
-    const { scene, camera, renderer, clock } = initScene();
-    document.body.appendChild(renderer.domElement);
+    // Position camera behind player (third-person view)
+    const cameraOffset = new THREE.Vector3(
+      -playerDirection.x * 12,
+      8, // Height above player
+      -playerDirection.z * 12
+    );
     
-    // Setup input handlers
-    const input = setupInputHandlers();
+    // Smoothly move the camera to follow the player
+    const cameraTargetPosition = new THREE.Vector3().copy(playerPosition).add(cameraOffset);
+    camera.position.lerp(cameraTargetPosition, 0.05);
     
-    // Setup game state
-    const { gameState, physicsWorld } = setupGame(scene);
-    
-    // Initialize fly camera
-    const flyCamera = new FlyCamera(camera);
-    
-    // Previous toggle state to detect changes
-    let prevToggleState = input.toggleFlyCamera;
-    
-    // Hide the loading element
-    if (loadingElement) {
-      loadingElement.style.display = 'none';
-    }
-    
-    // FPS counter variables
-    let frameCount = 0;
-    let lastTime = performance.now();
-    const fpsElement = document.getElementById('fps');
-    
-    // Update FPS counter
-    function updateFPS() {
-      frameCount++;
-      
-      const currentTime = performance.now();
-      const elapsedTime = currentTime - lastTime;
-      
-      // Update FPS display once per second
-      if (elapsedTime >= 1000) {
-        const fps = Math.round((frameCount * 1000) / elapsedTime);
-        if (fpsElement) {
-          fpsElement.textContent = `FPS: ${fps}`;
-        }
-        
-        // Reset values
-        frameCount = 0;
-        lastTime = currentTime;
-      }
-    }
-    
-    // Handle wireframe toggle
-    let prevWireframeState = input.wireframeToggle;
-    
-    function toggleWireframeMode(scene: THREE.Scene, isWireframe: boolean) {
-      // Create a notification about wireframe mode
-      const wireframeNotification = document.createElement('div');
-      wireframeNotification.style.position = 'absolute';
-      wireframeNotification.style.top = '140px';
-      wireframeNotification.style.left = '10px';
-      wireframeNotification.style.color = '#00ff00';
-      wireframeNotification.style.fontFamily = 'monospace';
-      wireframeNotification.style.fontSize = '16px';
-      wireframeNotification.style.padding = '5px';
-      wireframeNotification.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-      wireframeNotification.style.border = '1px solid #00ff00';
-      wireframeNotification.style.transition = 'opacity 0.5s ease-in-out';
-      wireframeNotification.style.opacity = '1';
-      wireframeNotification.textContent = isWireframe ? 'WIREFRAME MODE: ON' : 'WIREFRAME MODE: OFF';
-      
-      document.body.appendChild(wireframeNotification);
-      
-      // Fade out after 2 seconds
-      setTimeout(() => {
-        wireframeNotification.style.opacity = '0';
-        // Remove from DOM after fade out
-        setTimeout(() => {
-          document.body.removeChild(wireframeNotification);
-        }, 500);
-      }, 2000);
-      
-      // Process the scene to toggle wireframe for all materials
-      scene.traverse((object) => {
-        if (object instanceof THREE.Mesh && object.material) {
-          // Handle array of materials
-          if (Array.isArray(object.material)) {
-            object.material.forEach(material => {
-              if (material instanceof THREE.MeshStandardMaterial || 
-                  material instanceof THREE.MeshBasicMaterial ||
-                  material instanceof THREE.MeshPhongMaterial) {
-                material.wireframe = isWireframe;
-              }
-            });
-          } 
-          // Handle single material
-          else if (object.material instanceof THREE.MeshStandardMaterial || 
-                   object.material instanceof THREE.MeshBasicMaterial ||
-                   object.material instanceof THREE.MeshPhongMaterial) {
-            object.material.wireframe = isWireframe;
-          }
-        }
-      });
-    }
-    
-    // Set up animation loop
-    function animate() {
-      requestAnimationFrame(animate);
-      
-      // Update FPS counter
-      updateFPS();
-      
-      // Get elapsed time since last frame
-      const deltaTime = clock.getDelta();
-      
-      // Check if the fly camera toggle has changed
-      if (input.toggleFlyCamera !== prevToggleState) {
-        // If we're going from fly mode to tank mode, reset the camera position
-        if (flyCamera.enabled) {
-          flyCamera.resetToTankCamera();
-        }
-        
-        // Toggle the camera mode
-        flyCamera.toggle();
-        prevToggleState = input.toggleFlyCamera;
-        
-        // Update camera mode display
-        const cameraMode = document.getElementById('camera-mode');
-        if (cameraMode) {
-          cameraMode.textContent = flyCamera.enabled ? 'CAMERA: FLY MODE' : 'CAMERA: TANK MODE';
-          cameraMode.style.opacity = '1';
-          // Fade out after 2 seconds
-          setTimeout(() => {
-            cameraMode.style.opacity = '0';
-          }, 2000);
-        }
-      }
-      
-      // Check if wireframe toggle has been pressed
-      if (input.wireframeToggle !== prevWireframeState) {
-        toggleWireframeMode(scene, input.wireframeToggle);
-        prevWireframeState = input.wireframeToggle;
-      }
-      
-      // Update game logic
-      updateGame(gameState, input, physicsWorld, deltaTime);
-      
-      // Update camera based on mode
-      if (flyCamera.enabled) {
-        flyCamera.update(input, deltaTime);
-      } else {
-        updateCamera(camera, gameState.player.mesh);
-      }
-      
-      // Render the scene
-      renderer.render(scene, camera);
-      
-      // Render orientation guide if it exists
-      if (scene.userData.orientationGuide) {
-        const { scene: guideScene, camera: guideCamera } = scene.userData.orientationGuide;
-        
-        // Update orientation guide to match main camera's rotation
-        // This keeps the guide aligned with your current view direction
-        const guideHelper = guideScene.children[0] as THREE.AxesHelper;
-        if (guideHelper) {
-          guideHelper.quaternion.copy(camera.quaternion);
-        }
-        
-        // Set up the viewport for the guide in the bottom-right corner
-        const guideSize = Math.min(150, window.innerWidth / 5);
-        renderer.setViewport(
-          window.innerWidth - guideSize - 10, 
-          window.innerHeight - guideSize - 10, 
-          guideSize, 
-          guideSize
-        );
-        renderer.setScissor(
-          window.innerWidth - guideSize - 10, 
-          window.innerHeight - guideSize - 10, 
-          guideSize, 
-          guideSize
-        );
-        renderer.setScissorTest(true);
-        
-        // Clear depth buffer to ensure guide renders on top
-        renderer.clearDepth();
-        
-        // Render the guide
-        renderer.render(guideScene, guideCamera);
-        
-        // Reset viewport and scissor test
-        renderer.setViewport(0, 0, window.innerWidth, window.innerHeight);
-        renderer.setScissor(0, 0, window.innerWidth, window.innerHeight);
-        renderer.setScissorTest(false);
-      }
-    }
-    
-    // Start the animation loop
-    animate();
-    
-    // Handle window resize
-    window.addEventListener('resize', () => {
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-    });
-    
-    // Add camera mode indicator to the UI
-    const cameraMode = document.createElement('div');
-    cameraMode.id = 'camera-mode';
-    cameraMode.textContent = 'CAMERA: TANK MODE';
-    cameraMode.style.position = 'absolute';
-    cameraMode.style.top = '60px';
-    cameraMode.style.left = '10px';
-    cameraMode.style.color = '#00ff00';
-    cameraMode.style.fontFamily = 'monospace';
-    cameraMode.style.fontSize = '20px';
-    cameraMode.style.opacity = '0';
-    cameraMode.style.transition = 'opacity 0.5s ease-in-out';
-    document.body.appendChild(cameraMode);
-    
-    // Add coordinate display
-    const coordDisplay = document.createElement('div');
-    coordDisplay.id = 'coordinates';
-    coordDisplay.style.position = 'absolute';
-    coordDisplay.style.top = '100px';
-    coordDisplay.style.left = '10px';
-    coordDisplay.style.color = '#00ff00';
-    coordDisplay.style.fontFamily = 'monospace';
-    coordDisplay.style.fontSize = '16px';
-    coordDisplay.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
-    coordDisplay.style.padding = '5px';
-    coordDisplay.style.border = '1px solid #00ff00';
-    document.body.appendChild(coordDisplay);
-    
-    // Update the coordinate display in the animation loop
-    setInterval(() => {
-      const position = flyCamera.enabled ? camera.position : gameState.player.mesh.position;
-      coordDisplay.innerHTML = `Position:<br>X: ${position.x.toFixed(2)}<br>Y: ${position.y.toFixed(2)}<br>Z: ${position.z.toFixed(2)}`;
-    }, 100); // Update 10 times per second
-  } catch (error) {
-    console.error('Error initializing game:', error);
-    const loadingElement = document.getElementById('loading');
-    if (loadingElement) {
-      loadingElement.innerHTML = `<div style="color: red">Error: ${error.message}</div>
-      <div style="margin-top: 20px; font-size: 16px">
-        Try the following:<br>
-        - Check your internet connection<br>
-        - Disable any content blockers<br>
-        - <a href="#" onclick="location.reload()" style="color: #00ff00">Reload the page</a>
-      </div>`;
-    }
+    // Look at player
+    const lookAtPosition = new THREE.Vector3().copy(playerPosition).add(new THREE.Vector3(0, 2, 0));
+    camera.lookAt(lookAtPosition);
   }
+  
+  renderer.render(scene, camera);
 }
 
-// Immediately invoke the initialization function regardless of DOMContentLoaded
-console.log("Attempting to initialize immediately");
-init().catch((error) => {
-  console.error('Unhandled error during initialization:', error);
-  const loadingElement = document.getElementById('loading');
-  if (loadingElement) {
-    loadingElement.textContent = `Error: ${error.message}. Please reload the page.`;
-    loadingElement.style.color = 'red';
-  }
-});
+// Start the game loop
+animate();
