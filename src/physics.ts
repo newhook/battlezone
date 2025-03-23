@@ -1,77 +1,69 @@
 // Use dynamic import pattern
-import { PhysicsWorld } from './types';
+import { PhysicsWorld as PhysicsWorldType, GameObject } from './types';
 import RAPIER from '@dimforge/rapier3d';
 
-export function createPhysicsWorld(): PhysicsWorld {
-  // Create a physics world
-  const gravity = { x: 0.0, y: -9.81, z: 0.0 };
-  
-  const world = new RAPIER.World(gravity);
-  
-  // List to track all physics bodies
-  const bodies: RAPIER.RigidBody[] = [];
-  
-  // Create ground plane
-  const groundColliderDesc = RAPIER.ColliderDesc.cuboid(500.0, 0.1, 500.0)
-    .setTranslation(0, -0.1, 0);
-  world.createCollider(groundColliderDesc);
-  
-  // Physics world update function
-  const update = (deltaTime: number) => {
+export class PhysicsWorld implements PhysicsWorldType {
+  world: RAPIER.World;
+  bodies: GameObject[];
+
+  constructor() {
+    // Create a physics world
+    const gravity = { x: 0.0, y: -9.81, z: 0.0 };
+    this.world = new RAPIER.World(gravity);
+    this.bodies = [];
+
+    // Create ground plane
+    const groundColliderDesc = RAPIER.ColliderDesc.cuboid(500.0, 0.1, 500.0)
+      .setTranslation(0, -0.1, 0);
+    this.world.createCollider(groundColliderDesc);
+  }
+
+  update(_deltaTime: number): void {
     // Step the physics simulation
-    world.step();
+    this.world.step();
     
     // Check for invalid bodies before updating
-    const validBodies = bodies.filter(body => {
+    const validBodies = this.bodies.filter(body => {
       try {
         // This will throw an error if the body has been removed but is still in our array
-        body.translation();
+        body.body.translation();
         return true;
       } catch (e) {
-        console.warn("Found invalid physics body, removing from tracking");
         return false;
       }
     });
     
     // Replace our bodies array with only valid bodies
-    if (validBodies.length !== bodies.length) {
-      bodies.length = 0;
-      bodies.push(...validBodies);
+    if (validBodies.length !== this.bodies.length) {
+      this.bodies.length = 0;
+      this.bodies.push(...validBodies);
     }
     
     // Update all physics objects
-    for (let i = 0; i < bodies.length; i++) {
-      const body = bodies[i];
-      if (body.userData && body.userData.mesh) {
-        try {
-          const position = body.translation();
-          const rotation = body.rotation();
+    for (let i = 0; i < this.bodies.length; i++) {
+      const body = this.bodies[i];
+      if (body.mesh) {
+          const position = body.body.translation();
+          const rotation = body.body.rotation();
           
           // Update mesh position and rotation from physics body
-          body.userData.mesh.position.set(position.x, position.y, position.z);
-          body.userData.mesh.quaternion.set(rotation.x, rotation.y, rotation.z, rotation.w);
-        } catch (e) {
-          console.error("Error updating body:", e);
-        }
+          body.mesh.position.set(position.x, position.y, position.z);
+          body.mesh.quaternion.set(rotation.x, rotation.y, rotation.z, rotation.w);
       }
     }
-  };
-  
-  // Add a body to the physics world
-  const addBody = (body: RAPIER.RigidBody) => {
-    bodies.push(body);
-  };
+  }
 
-  // Remove a body from the physics world
-  const removeBody = (body: RAPIER.RigidBody) => {
-    const index = bodies.indexOf(body);
+  addBody(body: GameObject): void {
+    this.bodies.push(body);
+  }
+
+  removeBody(body: GameObject): void {
+    const index = this.bodies.indexOf(body);
     if (index !== -1) {
-      bodies.splice(index, 1);
-      world.removeRigidBody(body);
+      this.bodies.splice(index, 1);
+      this.world.removeRigidBody(body.body);
     }
-  };
-  
-  return { world, bodies, update, addBody, removeBody };
+  }
 }
 
 export function createVehicleBody(

@@ -3,7 +3,7 @@ import RAPIER from '@dimforge/rapier3d';
 
 export interface GameObject {
   mesh: THREE.Mesh;
-  body?: RAPIER.RigidBody;
+  body: RAPIER.RigidBody;
   update?: () => void;
 }
 
@@ -13,6 +13,7 @@ export interface Vehicle extends GameObject {
   move: (direction: number) => void;
   turn: (direction: number) => void;
   fire: () => void;
+  rotateTurret: (direction: number) => void;
   canFire: boolean;
   lastFired: number;
 }
@@ -42,12 +43,14 @@ export interface InputState {
   fire: boolean;
   toggleFlyCamera: boolean;
   wireframeToggle: boolean;
+  turretLeft: boolean;  // For Q key
+  turretRight: boolean; // For E key
 }
 
 export interface PhysicsWorld {
   world: RAPIER.World;
-  bodies: RAPIER.RigidBody[];
+  bodies: GameObject[];
   update: (deltaTime: number) => void;
-  addBody: (body: RAPIER.RigidBody) => void;
-  removeBody: (body: RAPIER.RigidBody) => void;
+  addBody: (body: GameObject) => void;
+  removeBody: (body: GameObject) => void;
 }

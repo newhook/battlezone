@@ -9,7 +9,9 @@ export function setupInputHandlers(): InputState {
     right: false,
     fire: false,
     toggleFlyCamera: false,
-    wireframeToggle: false
+    wireframeToggle: false,
+    turretLeft: false,
+    turretRight: false
   };
   
   // Key down handler
@@ -35,6 +37,12 @@ export function setupInputHandlers(): InputState {
       case 'KeyD':
       case 'ArrowRight':
         input.right = true;
+        break;
+      case 'KeyQ':
+        input.turretLeft = true;
+        break;
+      case 'KeyE':
+        input.turretRight = true;
         break;
       case 'Space':
         input.fire = true;
@@ -64,6 +72,12 @@ export function setupInputHandlers(): InputState {
       case 'KeyD':
       case 'ArrowRight':
         input.right = false;
+        break;
+      case 'KeyQ':
+        input.turretLeft = false;
+        break;
+      case 'KeyE':
+        input.turretRight = false;
         break;
       case 'Space':
         input.fire = false;

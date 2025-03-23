@@ -1,22 +1,19 @@
 import * as THREE from 'three';
 import { GameState, GameObject, Vehicle, InputState } from './types';
-import { createTerrain, createBoundaryWalls, createGround } from './gameObjects';
+import { createTerrain, createGround, createBoundaryWalls } from './gameObjects';
 import { PlayerTank } from './playerTank';
 import { EnemyTank } from './enemyTank';
-import { createPhysicsWorld, createObstacleBody } from './physics';
+import { PhysicsWorld, createObstacleBody } from './physics';
 
 // Set up the game state
 export function setupGame(scene: THREE.Scene): { gameState: GameState, physicsWorld: any } {
   // Create physics world
-  const physicsWorld = createPhysicsWorld();
+  const physicsWorld = new PhysicsWorld();
   
   // Create player tank
-  const player = new PlayerTank();
+  const player = new PlayerTank(physicsWorld);
   scene.add(player.mesh);
-  
-  // Initialize player physics
-  player.initPhysics(physicsWorld.world);
-  physicsWorld.addBody(player.body);
+  physicsWorld.addBody(player);
   
   // Create more enemy tanks spread across the large terrain
   const enemies: Vehicle[] = [];
@@ -30,13 +27,10 @@ export function setupGame(scene: THREE.Scene): { gameState: GameState, physicsWo
       z = (Math.random() * 960) - 480;
     } while (Math.sqrt(x*x + z*z) < 100); // Keep at least 100 units away from origin
     
-    const enemy = new EnemyTank(new THREE.Vector3(x, 0, z));
+    const enemy = new EnemyTank(physicsWorld, new THREE.Vector3(x, 0, z));
     enemies.push(enemy);
     scene.add(enemy.mesh);
-    
-    // Initialize enemy physics
-    enemy.initPhysics(physicsWorld.world);
-    physicsWorld.addBody(enemy.body);
+    physicsWorld.addBody(enemy);
   }
   
   // Create random terrain objects (obstacles) across the 1000x1000 terrain
@@ -67,34 +61,32 @@ export function setupGame(scene: THREE.Scene): { gameState: GameState, physicsWo
     // We don't need to create physics bodies here since they're already created in createTerrain
     // Just add the existing body to the physics world
     if (obj.body) {
-      physicsWorld.addBody(obj.body);
+      physicsWorld.addBody(obj);
     }
   });
   
   // Create boundary walls (expanded to 1000 x 1000)
-  const walls: GameObject[] = [];
-  // const walls = createBoundaryWalls(500, physicsWorld.world);
-  // walls.forEach(wall => {
-  //   scene.add(wall.mesh);
+  const walls = createBoundaryWalls(500, physicsWorld.world);
+  walls.forEach(wall => {
+    scene.add(wall.mesh);
     
-  //   // Create wall physics bodies
-  //   const size = {
-  //     width: wall.mesh.scale.x,
-  //     height: wall.mesh.scale.y,
-  //     depth: wall.mesh.scale.z
-  //   };
+    // Create wall physics bodies
+    const size = {
+      width: wall.mesh.scale.x,
+      height: wall.mesh.scale.y,
+      depth: wall.mesh.scale.z
+    };
     
-  //   const position = {
-  //     x: wall.mesh.position.x,
-  //     y: wall.mesh.position.y,
-  //     z: wall.mesh.position.z
-  //   };
+    const position = {
+      x: wall.mesh.position.x,
+      y: wall.mesh.position.y,
+      z: wall.mesh.position.z
+    };
     
-  //   // Create physics body for wall
-  //   wall.body = createObstacleBody(size, position, physicsWorld.world, 0);
-  //   wall.body.userData = { mesh: wall.mesh };
-  //   physicsWorld.addBody(wall.body);
-  // });
+    // Create physics body for wall
+    wall.body = createObstacleBody(size, position, physicsWorld.world, 0);
+    physicsWorld.addBody(wall);
+  });
   
   // Create ground (expanded to 1000 x 1000)
   const ground = createGround(1000);
@@ -127,21 +119,32 @@ export function updateGame(gameState: GameState, input: InputState, physicsWorld
   // Update physics world
   physicsWorld.update(deltaTime);
   
-  // Handle player input
-  if (input.forward) {
-    gameState.player.move(1);
-  }
-  if (input.backward) {
-    gameState.player.move(-1);
-  }
-  if (input.left) {
-    gameState.player.turn(1);
-  }
-  if (input.right) {
-    gameState.player.turn(-1);
+  // Only process tank movement controls if not in fly mode
+  if (!input.toggleFlyCamera) {
+    // Handle player input
+    if (input.forward) {
+      gameState.player.move(1);
+    }
+    if (input.backward) {
+      gameState.player.move(-1);
+    }
+    if (input.left) {
+      gameState.player.turn(1);
+    }
+    if (input.right) {
+      gameState.player.turn(-1);
+    }
+    
+    // Handle turret rotation
+    if (input.turretLeft) {
+      gameState.player.rotateTurret(1);
+    }
+    if (input.turretRight) {
+      gameState.player.rotateTurret(-1);
+    }
   }
   
-  // Handle firing with debug info
+  // Handle firing - this remains active in both modes
   if (input.fire) {
     console.log("Fire button pressed, canFire =", gameState.player.canFire);
     
@@ -240,7 +243,9 @@ export function updateGame(gameState: GameState, input: InputState, physicsWorld
             console.log("Hit enemy at distance:", distance);
             
             // Create explosion effect
-            createExplosion(enemyPos, scene);
+            if (enemy.mesh.parent) {
+              createExplosion(enemyPos, enemy.mesh.parent);
+            }
             
             // Remove enemy from scene
             if (enemy.mesh.parent) {
@@ -296,7 +301,7 @@ export function updateGame(gameState: GameState, input: InputState, physicsWorld
 }
 
 // Create explosion effect at the given position
-function createExplosion(position: THREE.Vector3 | RAPIER.Vector, scene: THREE.Scene) {
+function createExplosion(position: { x: number, y: number, z: number }, scene: THREE.Object3D) {
   // Explosion particle count
   const particleCount = 20;
   
@@ -316,11 +321,7 @@ function createExplosion(position: THREE.Vector3 | RAPIER.Vector, scene: THREE.S
     const particle = new THREE.Mesh(geometry, material);
     
     // Set particle position to explosion center
-    if (position instanceof THREE.Vector3) {
-      particle.position.copy(position);
-    } else {
-      particle.position.set(position.x, position.y, position.z);
-    }
+    particle.position.set(position.x, position.y, position.z);
     
     // Random velocity
     const velocity = new THREE.Vector3(
