@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import { GameState, GameObject, Vehicle, InputState } from './types';
-import { createTerrain, createGround } from './gameObjects';
+import { createTerrain, createGround, createBoundaryWalls } from './gameObjects';
 import { PlayerTank } from './playerTank';
 import { EnemyTank } from './enemyTank';
-import { createPhysicsWorld } from './physics';
+import { createPhysicsWorld, createObstacleBody } from './physics';
 
 // Set up the game state
 export function setupGame(scene: THREE.Scene): { gameState: GameState, physicsWorld: any } {
@@ -76,29 +76,28 @@ export function setupGame(scene: THREE.Scene): { gameState: GameState, physicsWo
   });
   
   // Create boundary walls (expanded to 1000 x 1000)
-  const walls: GameObject[] = [];
-  // const walls = createBoundaryWalls(500, physicsWorld.world);
-  // walls.forEach(wall => {
-  //   scene.add(wall.mesh);
+  const walls = createBoundaryWalls(500, physicsWorld.world);
+  walls.forEach(wall => {
+    scene.add(wall.mesh);
     
-  //   // Create wall physics bodies
-  //   const size = {
-  //     width: wall.mesh.scale.x,
-  //     height: wall.mesh.scale.y,
-  //     depth: wall.mesh.scale.z
-  //   };
+    // Create wall physics bodies
+    const size = {
+      width: wall.mesh.scale.x,
+      height: wall.mesh.scale.y,
+      depth: wall.mesh.scale.z
+    };
     
-  //   const position = {
-  //     x: wall.mesh.position.x,
-  //     y: wall.mesh.position.y,
-  //     z: wall.mesh.position.z
-  //   };
+    const position = {
+      x: wall.mesh.position.x,
+      y: wall.mesh.position.y,
+      z: wall.mesh.position.z
+    };
     
-  //   // Create physics body for wall
-  //   wall.body = createObstacleBody(size, position, physicsWorld.world, 0);
-  //   wall.body.userData = { mesh: wall.mesh };
-  //   physicsWorld.addBody(wall.body);
-  // });
+    // Create physics body for wall
+    wall.body = createObstacleBody(size, position, physicsWorld.world, 0);
+    wall.body.userData = { mesh: wall.mesh };
+    physicsWorld.addBody(wall.body);
+  });
   
   // Create ground (expanded to 1000 x 1000)
   const ground = createGround(1000);
