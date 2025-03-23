@@ -10,6 +10,7 @@ export class EnemyTank extends Tank {
   aiIntervalId: number | null = null;
 
   constructor(physicsWorld : PhysicsWorld, position: THREE.Vector3) {
+    // super(physicsWorld, position, 0xff0000, { width: 200, height: 40, depth: 90 }); // Call base class constructor with red color
     super(physicsWorld, position, 0xff0000); // Call base class constructor with red color
 
     // Enemy-specific properties
@@ -22,9 +23,9 @@ export class EnemyTank extends Tank {
 
   startAI(): void {
     // Run AI behavior at fixed intervals
-    this.aiIntervalId = window.setInterval(() => {
-      this.updateAI();
-    }, this.aiUpdateInterval);
+    // this.aiIntervalId = window.setInterval(() => {
+    //   this.updateAI();
+    // }, this.aiUpdateInterval);
   }
 
   stopAI(): void {
@@ -136,6 +137,7 @@ export class EnemyTank extends Tank {
   }
 
   update(): void {
+    // console.log("Enemy tank update", this.mesh.position);
     super.update();
     // Check if we need to fire at the player
     this.checkAndFireAtPlayer();

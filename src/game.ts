@@ -3,93 +3,72 @@ import { GameState, GameObject, Vehicle, InputState } from './types';
 import { createTerrain, createGround, createBoundaryWalls } from './gameObjects';
 import { PlayerTank } from './playerTank';
 import { EnemyTank } from './enemyTank';
-import { PhysicsWorld, createObstacleBody } from './physics';
+import { PhysicsWorld } from './physics';
+import { GameConfig, defaultConfig } from './config';
 
 // Set up the game state
-export function setupGame(scene: THREE.Scene): { gameState: GameState, physicsWorld: PhysicsWorld } {
-  // Create physics world
-  const physicsWorld = new PhysicsWorld();
+export function setupGame(scene: THREE.Scene, config: GameConfig = defaultConfig): { gameState: GameState, physicsWorld: PhysicsWorld } {
+  // Create physics world with config
+  const physicsWorld = new PhysicsWorld(config);
   
   // Create player tank
   const player = new PlayerTank(physicsWorld);
   scene.add(player.mesh);
   physicsWorld.addBody(player);
   
-  // Create more enemy tanks spread across the large terrain
+  // Create enemy tanks spread across the terrain
   const enemies: Vehicle[] = [];
+  const halfWorldSize = config.worldSize / 2 - 20; // Subtract margin to keep within bounds
   
-  // Add 10 enemy tanks at random positions
-  for (let i = 0; i < 10; i++) {
+  // Add enemy tanks at random positions
+  for (let i = 0; i < config.enemyCount; i++) {
     // Random position far from player start
     let x = 0, z = 0;
     do {
-      x = (Math.random() * 960) - 480; // Keep tanks within the boundary
-      z = (Math.random() * 960) - 480;
-    } while (Math.sqrt(x*x + z*z) < 100); // Keep at least 100 units away from origin
+      x = (Math.random() * (halfWorldSize * 2)) - halfWorldSize;
+      z = (Math.random() * (halfWorldSize * 2)) - halfWorldSize;
+    } while (Math.sqrt(x*x + z*z) < config.minEnemyDistance); // Keep minimum distance from origin
     
-    const enemy = new EnemyTank(physicsWorld, new THREE.Vector3(x, 0, z));
+    const enemy = new EnemyTank(physicsWorld, new THREE.Vector3(x, 0.4, z));
+    enemy.startAI();
     enemies.push(enemy);
     scene.add(enemy.mesh);
     physicsWorld.addBody(enemy);
   }
   
-  // Create random terrain objects (obstacles) across the 1000x1000 terrain
+  // Create random terrain objects (obstacles) across the terrain
   const terrainPositions: THREE.Vector3[] = [];
   
-  // Generate 200 random obstacle positions
-  for (let i = 0; i < 200; i++) {
-    // Calculate random position but avoid area around player (0,0)
+  // Generate obstacles with configurable count
+  for (let i = 0; i < config.obstacleCount; i++) {
     let x = 0, z = 0;
     
     // Make sure obstacles aren't too close to the starting position (0,0)
     do {
-      x = (Math.random() * 980) - 490; // Range from -490 to 490
-      z = (Math.random() * 980) - 490; // Range from -490 to 490
-    } while (Math.sqrt(x*x + z*z) < 20); // Keep at least 20 units away from origin
+      x = (Math.random() * (halfWorldSize * 2)) - halfWorldSize;
+      z = (Math.random() * (halfWorldSize * 2)) - halfWorldSize;
+    } while (Math.sqrt(x*x + z*z) < config.minObstacleDistance);
     
-    // Set Y position to half the obstacle height to place it on the ground
-    // We'll adjust this in createTerrain to ensure the bottom of the object is at ground level
-    const y = 0; 
-    
-    terrainPositions.push(new THREE.Vector3(x, y, z));
+    terrainPositions.push(new THREE.Vector3(x, 0, z));
   }
   
-  const terrain = createTerrain(terrainPositions,physicsWorld.world);
+  const terrain = createTerrain(terrainPositions, physicsWorld.world);
   terrain.forEach(obj => {
     scene.add(obj.mesh);
-    
-    // We don't need to create physics bodies here since they're already created in createTerrain
-    // Just add the existing body to the physics world
     if (obj.body) {
       physicsWorld.addBody(obj);
     }
   });
   
-  // Create boundary walls (expanded to 1000 x 1000)
-  const walls = createBoundaryWalls(500, physicsWorld.world);
+  // Create boundary walls
+  const walls = createBoundaryWalls(halfWorldSize, config.wallHeight, config.wallThickness, physicsWorld.world);
   walls.forEach(wall => {
     scene.add(wall.mesh);
-    
-    // Create wall physics bodies
-    const size = {
-      width: wall.mesh.scale.x,
-      height: wall.mesh.scale.y,
-      depth: wall.mesh.scale.z
-    };
-    
-    const position = {
-      x: wall.mesh.position.x,
-      y: wall.mesh.position.y,
-      z: wall.mesh.position.z
-    };
-    
-    // Create physics body for wall
-    wall.body = createObstacleBody(size, position, physicsWorld.world, 0);
     physicsWorld.addBody(wall);
   });
   
-  // Create ground (expanded to 1000 x 1000)
-  const ground = createGround(1000);
+  // Create ground
+  const ground = createGround(config.worldSize);
   scene.add(ground.mesh);
   
   // All objects in one array

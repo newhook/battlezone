@@ -1,19 +1,20 @@
-// Use dynamic import pattern
 import { PhysicsWorld as PhysicsWorldType, GameObject } from './types';
 import RAPIER from '@dimforge/rapier3d';
+import { GameConfig } from './config';
 
 export class PhysicsWorld implements PhysicsWorldType {
   world: RAPIER.World;
   bodies: GameObject[];
 
-  constructor() {
+  constructor(config: GameConfig) {
     // Create a physics world
     const gravity = { x: 0.0, y: -9.81, z: 0.0 };
     this.world = new RAPIER.World(gravity);
     this.bodies = [];
 
-    // Create ground plane
-    const groundColliderDesc = RAPIER.ColliderDesc.cuboid(500.0, 0.1, 500.0).setTranslation(0, -0.1, 0)
+    // Create ground plane with configurable size
+    const groundSize = config.worldSize / 2; // Divide by 2 since the size is total width
+    const groundColliderDesc = RAPIER.ColliderDesc.cuboid(groundSize, 0.1, groundSize).setTranslation(0, -0.1, 0)
     this.world.createCollider(groundColliderDesc);
   }
 

@@ -3,6 +3,7 @@ import { initScene, updateCamera } from './scene';
 import { setupGame, updateGame } from './game';
 import { setupInputHandlers } from './input';
 import { FlyCamera } from './flyCamera';
+import { GameConfig, defaultConfig } from './config';
 
 // Function to initialize the app
 async function init() {
@@ -17,8 +18,12 @@ async function init() {
     // Setup input handlers
     const input = setupInputHandlers();
     
-    // Setup game state
-    const { gameState, physicsWorld } = setupGame(scene);
+    // Setup game state with configuration
+    const config: GameConfig = {
+      ...defaultConfig,
+      // You can override default config values here if needed
+    };
+    const { gameState, physicsWorld } = setupGame(scene, config);
     
     // Initialize fly camera
     const flyCamera = new FlyCamera(camera);
@@ -248,7 +253,7 @@ async function init() {
     console.error('Error initializing game:', error);
     const loadingElement = document.getElementById('loading');
     if (loadingElement) {
-      loadingElement.innerHTML = `<div style="color: red">Error: ${error.message}</div>
+      loadingElement.innerHTML = `<div style="color: red">Error: ${(error as Error).message || 'Unknown error'}</div>
       <div style="margin-top: 20px; font-size: 16px">
         Try the following:<br>
         - Check your internet connection<br>

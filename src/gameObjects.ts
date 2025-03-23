@@ -89,10 +89,8 @@ export function createTerrain(positions: THREE.Vector3[], world: RAPIER.World): 
 }
 
 // Create the game world boundary walls
-export function createBoundaryWalls(size: number, world: RAPIER.World): GameObject[] {
+export function createBoundaryWalls(size: number, wallHeight: number, wallThickness: number, world: RAPIER.World): GameObject[] {
   const walls: GameObject[] = [];
-  const wallHeight = 8;
-  const wallThickness = 2;
   
   // Materials
   const wallMaterial = new THREE.MeshStandardMaterial({ 
@@ -104,10 +102,10 @@ export function createBoundaryWalls(size: number, world: RAPIER.World): GameObje
   
   // Create four walls around the play area
   const wallPositions = [
-    { pos: new THREE.Vector3(0, 0, size / 2 + wallThickness / 2), size: new THREE.Vector3(size + wallThickness * 2, wallHeight, wallThickness) }, // North wall
-    { pos: new THREE.Vector3(0, 0, -size / 2 - wallThickness / 2), size: new THREE.Vector3(size + wallThickness * 2, wallHeight, wallThickness) }, // South wall
-    { pos: new THREE.Vector3(size / 2 + wallThickness / 2, 0, 0), size: new THREE.Vector3(wallThickness, wallHeight, size) }, // East wall
-    { pos: new THREE.Vector3(-size / 2 - wallThickness / 2, 0, 0), size: new THREE.Vector3(wallThickness, wallHeight, size) }  // West wall
+    { pos: new THREE.Vector3(0, 0, size + wallThickness / 2), size: new THREE.Vector3(size * 2 + wallThickness * 2, wallHeight, wallThickness) }, // North wall
+    { pos: new THREE.Vector3(0, 0, -size - wallThickness / 2), size: new THREE.Vector3(size * 2 + wallThickness * 2, wallHeight, wallThickness) }, // South wall
+    { pos: new THREE.Vector3(size + wallThickness / 2, 0, 0), size: new THREE.Vector3(wallThickness, wallHeight, size * 2) }, // East wall
+    { pos: new THREE.Vector3(-size - wallThickness / 2, 0, 0), size: new THREE.Vector3(wallThickness, wallHeight, size * 2) }  // West wall
   ];
   
   wallPositions.forEach(wall => {
@@ -161,9 +159,12 @@ export function createGround(size: number): GameObject {
   mesh.add(gridHelper);
   
   // Ground doesn't need a physics body as it's already created in the physics world
+  // But we need to satisfy the GameObject interface with a placeholder
+  const body = null as unknown as RAPIER.RigidBody;
   
   return {
     mesh,
+    body,
     update: () => {} // Ground doesn't need updates
   };
 }
