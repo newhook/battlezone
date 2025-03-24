@@ -20,6 +20,7 @@ export class EnemyTank extends Tank {
     this.turnSpeed = 2;  // Increased from 1 to 2 to compensate for the lower base turn speed
     this.detectionRange = 500;
     this.firingRange = 30;
+    this.hitpoints = 10; // Enemies have fewer hitpoints than the player
   }
 
   calculateTurnDirection(forward: THREE.Vector3, targetDirection: THREE.Vector3): number {
@@ -146,6 +147,77 @@ export class EnemyTank extends Tank {
       if (Math.abs(angleToPlayer) < Math.PI / 8) {
         this.fire();
       }
+    }
+  }
+
+  // Override takeDamage to add visual feedback specific to enemy tanks
+  takeDamage(amount: number = 10): boolean {
+    const isAlive = super.takeDamage(amount);
+    
+    // If the tank is destroyed, show more dramatic effects
+    if (!isAlive) {
+      // Create smoke particles for a damaged tank
+      this.createDamageEffect();
+    }
+    
+    return isAlive;
+  }
+  
+  private createDamageEffect(): void {
+    // Create smoke particles at the tank position
+    const particleCount = 15;
+    const tankPosition = this.mesh.position.clone();
+    
+    for (let i = 0; i < particleCount; i++) {
+      const size = 0.3 + Math.random() * 0.4;
+      const geometry = new THREE.SphereGeometry(size, 8, 8);
+      const material = new THREE.MeshBasicMaterial({
+        color: 0x333333,
+        transparent: true,
+        opacity: 0.7
+      });
+      
+      const particle = new THREE.Mesh(geometry, material);
+      particle.position.set(
+        tankPosition.x + (Math.random() * 2 - 1),
+        tankPosition.y + Math.random() * 2,
+        tankPosition.z + (Math.random() * 2 - 1)
+      );
+      
+      // Add particle to scene
+      this.state.scene.add(particle);
+      
+      // Animate the smoke particle
+      const startTime = Date.now();
+      const duration = 1000 + Math.random() * 1000;
+      
+      // Create upward drift motion
+      const drift = new THREE.Vector3(
+        Math.random() * 0.5 - 0.25,
+        Math.random() * 0.5 + 0.5, // Mostly upward
+        Math.random() * 0.5 - 0.25
+      );
+      
+      const animateParticle = () => {
+        const elapsed = Date.now() - startTime;
+        const progress = elapsed / duration;
+        
+        if (progress >= 1) {
+          this.state.scene.remove(particle);
+          return;
+        }
+        
+        // Drift upward and expand slightly
+        particle.position.add(drift.clone().multiplyScalar(0.03));
+        particle.scale.multiplyScalar(1.01);
+        
+        // Fade out
+        material.opacity = 0.7 * (1 - progress);
+        
+        requestAnimationFrame(animateParticle);
+      };
+      
+      animateParticle();
     }
   }
 }

@@ -3,18 +3,26 @@ import RAPIER from '@dimforge/rapier3d';
 import { GameObject } from './types';
 import { PlayState } from './playState';
 
+export enum ProjectileSource {
+  PLAYER,
+  ENEMY
+}
+
 export class Projectile implements GameObject {
   state: PlayState
   mesh: THREE.Mesh;
   body: RAPIER.RigidBody;
+  source: ProjectileSource;
 
   constructor(
     playState: PlayState,
     position: THREE.Vector3,
     direction: THREE.Vector3,
     initialVelocity: THREE.Vector3,
+    source: ProjectileSource = ProjectileSource.PLAYER
   ) {
     this.state = playState;
+    this.source = source;
     // Create projectile mesh with bright, glowing material
     const projectileGeometry = new THREE.SphereGeometry(0.5, 16, 16);
     const projectileMaterial = new THREE.MeshStandardMaterial({
