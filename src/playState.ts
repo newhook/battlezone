@@ -26,6 +26,7 @@ export class PlayState implements IGameState {
     radar: Radar;
     prevWireframeState: boolean = false;
     input?: InputState;
+    config: GameConfig;
     
     // Level progression properties
     currentLevel: number = 1;
@@ -39,14 +40,13 @@ export class PlayState implements IGameState {
         this.scene.background = new THREE.Color(0x000000);
 
         // Setup game state with configuration
-        const config: GameConfig = {
+        this.config = {
             ...defaultConfig,
         };
 
         this.gameStateManager = gameStateManager;
-        this.physicsWorld = new PhysicsWorld(config);
-        this.initializeGameObjects(config);
-
+        this.physicsWorld = new PhysicsWorld(this.config);
+        this.initializeGameObjects(this.config);
 
         // Set up camera with increased far plane and narrower FOV for first person view
         this.camera = new THREE.PerspectiveCamera(
@@ -125,9 +125,11 @@ export class PlayState implements IGameState {
         this.scene.add(this.player.mesh);
         this.physicsWorld.addBody(this.player);
 
-        // Create enemy tanks
+        // Create enemy tanks for level 1 - use baseEnemyCount instead of enemyCount
         const halfWorldSize = config.worldSize / 2 - 20;
-        for (let i = 0; i < config.enemyCount; i++) {
+        
+        // Create base number of enemies for first level
+        for (let i = 0; i < config.baseEnemyCount; i++) {
             let x = 0, z = 0;
             do {
                 x = (Math.random() * (halfWorldSize * 2)) - halfWorldSize;
@@ -1030,16 +1032,16 @@ export class PlayState implements IGameState {
         this.levelComplete = false;
         
         // Increase player max hitpoints and heal
-        const newMaxHitpoints = 15 + (this.currentLevel - 1) * 10;
+        const newMaxHitpoints = 15 + (this.currentLevel - 1) * this.config.playerHealthBonus;
         this.player.maxHitpoints = newMaxHitpoints;
-        this.player.hitpoints = Math.min(this.player.hitpoints + 10, newMaxHitpoints);
+        this.player.hitpoints = Math.min(this.player.hitpoints + this.config.playerHealAmount, newMaxHitpoints);
         
         // Calculate scaled parameters for enemies based on level
         const levelScaling = {
-          count: this.baseEnemyCount + (this.currentLevel - 1) * 5,
-          speedMultiplier: 1 + (this.currentLevel - 1) * 0.05,
-          rangeMultiplier: 1 + (this.currentLevel - 1) * 0.05,
-          hitpointsMultiplier: 1 + (this.currentLevel - 1) * 0.2
+          count: this.config.baseEnemyCount + (this.currentLevel - 1) * this.config.enemiesPerLevel,
+          speedMultiplier: 1 + (this.currentLevel - 1) * (this.config.enemySpeedScale - 1),
+          rangeMultiplier: 1 + (this.currentLevel - 1) * (this.config.enemyRangeScale - 1),
+          hitpointsMultiplier: 1 + (this.currentLevel - 1) * (this.config.enemyHealthScale - 1)
         };
         
         // Spawn new enemies with scaled parameters
