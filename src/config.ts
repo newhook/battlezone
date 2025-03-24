@@ -10,7 +10,7 @@ export interface GameConfig {
 
 export const defaultConfig: GameConfig = {
     worldSize: 500,
-    enemyCount: 50,
+    enemyCount: 20,
     obstacleCount: 100,
     minObstacleDistance: 10,
     minEnemyDistance: 100,

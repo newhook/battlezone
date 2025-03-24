@@ -30,7 +30,6 @@ export function setupGame(scene: THREE.Scene, config: GameConfig = defaultConfig
     } while (Math.sqrt(x*x + z*z) < config.minEnemyDistance); // Keep minimum distance from origin
     
     const enemy = new EnemyTank(physicsWorld, new THREE.Vector3(x, 0.4, z));
-    enemy.startAI();
     enemies.push(enemy);
     scene.add(enemy.mesh);
     physicsWorld.addBody(enemy);
@@ -125,8 +124,6 @@ export function updateGame(gameState: GameState, input: InputState, physicsWorld
   
   // Handle firing - this remains active in both modes
   if (input.fire) {
-    console.log("Fire button pressed, canFire =", gameState.player.canFire);
-    
     // Visual feedback when trying to fire
     const feedbackDiv = document.createElement('div');
     feedbackDiv.textContent = gameState.player.canFire ? "FIRING!" : "COOLING DOWN...";
@@ -174,107 +171,87 @@ export function updateGame(gameState: GameState, input: InputState, physicsWorld
       continue;
     }
     
-    try {
-      // Check if projectile is still valid (this will throw if the physics body is invalid)
-      const projectilePos = projectile.body.translation();
+    // Check if projectile is still valid (this will throw if the physics body is invalid)
+    const projectilePos = projectile.body.translation();
+    
+    // Check if projectile has gone too far away (optimization)
+    const distanceFromOrigin = Math.sqrt(
+      projectilePos.x * projectilePos.x + 
+      projectilePos.y * projectilePos.y + 
+      projectilePos.z * projectilePos.z
+    );
+    
+    // If projectile has gone too far, remove it
+    if (distanceFromOrigin > 1000) {
+      if (projectile.mesh.parent) {
+        projectile.mesh.parent.remove(projectile.mesh);
+      }
       
-      // Check if projectile has gone too far away (optimization)
-      const distanceFromOrigin = Math.sqrt(
-        projectilePos.x * projectilePos.x + 
-        projectilePos.y * projectilePos.y + 
-        projectilePos.z * projectilePos.z
+      if (physicsWorld) {
+        physicsWorld.removeBody(projectile.body);
+      }
+      
+      gameState.projectiles.splice(i, 1);
+      continue;
+    }
+    
+    // Check collision with each enemy
+    for (let j = gameState.enemies.length - 1; j >= 0; j--) {
+      const enemy = gameState.enemies[j];
+      
+      if (!enemy.body || !enemy.mesh) {
+        continue;
+      }
+      
+      const enemyPos = enemy.body.translation();
+      
+      // Calculate distance for collision detection
+      const distance = Math.sqrt(
+        Math.pow(projectilePos.x - enemyPos.x, 2) +
+        Math.pow(projectilePos.y - enemyPos.y, 2) +
+        Math.pow(projectilePos.z - enemyPos.z, 2)
       );
       
-      // If projectile has gone too far, remove it
-      if (distanceFromOrigin > 1000) {
+      // Check if collision occurred
+      if (distance < 2) { // Collision threshold
+        console.log("Hit enemy at distance:", distance);
+        
+        // Create explosion effect
+        if (enemy.mesh.parent) {
+          createExplosion(enemyPos, enemy.mesh.parent);
+        }
+        
+        // Remove enemy from scene
+        if (enemy.mesh.parent) {
+          enemy.mesh.parent.remove(enemy.mesh);
+        }
+        
+        // Remove enemy from physics world
+        if (enemy.body) {
+          physicsWorld.removeBody(enemy.body);
+        }
+        
+        // Remove projectile from scene
         if (projectile.mesh.parent) {
           projectile.mesh.parent.remove(projectile.mesh);
         }
         
-        if (physicsWorld) {
+        // Remove projectile from physics world
+        if (projectile.body) {
           physicsWorld.removeBody(projectile.body);
         }
         
+        // Remove from arrays
+        gameState.enemies.splice(j, 1);
         gameState.projectiles.splice(i, 1);
-        continue;
-      }
-      
-      // Check collision with each enemy
-      for (let j = gameState.enemies.length - 1; j >= 0; j--) {
-        const enemy = gameState.enemies[j];
         
-        if (!enemy.body || !enemy.mesh) {
-          continue;
-        }
+        // Increase score
+        gameState.score += 100;
+        updateScoreDisplay(gameState.score);
         
-        try {
-          const enemyPos = enemy.body.translation();
-          
-          // Calculate distance for collision detection
-          const distance = Math.sqrt(
-            Math.pow(projectilePos.x - enemyPos.x, 2) +
-            Math.pow(projectilePos.y - enemyPos.y, 2) +
-            Math.pow(projectilePos.z - enemyPos.z, 2)
-          );
-          
-          // Check if collision occurred
-          if (distance < 2) { // Collision threshold
-            console.log("Hit enemy at distance:", distance);
-            
-            // Create explosion effect
-            if (enemy.mesh.parent) {
-              createExplosion(enemyPos, enemy.mesh.parent);
-            }
-            
-            // Remove enemy from scene
-            if (enemy.mesh.parent) {
-              enemy.mesh.parent.remove(enemy.mesh);
-            }
-            
-            // Remove enemy from physics world
-            if (enemy.body) {
-              physicsWorld.removeBody(enemy.body);
-              
-              // Stop AI behavior
-              if (enemy instanceof EnemyTank) {
-                enemy.stopAI();
-              }
-            }
-            
-            // Remove projectile from scene
-            if (projectile.mesh.parent) {
-              projectile.mesh.parent.remove(projectile.mesh);
-            }
-            
-            // Remove projectile from physics world
-            if (projectile.body) {
-              physicsWorld.removeBody(projectile.body);
-            }
-            
-            // Remove from arrays
-            gameState.enemies.splice(j, 1);
-            gameState.projectiles.splice(i, 1);
-            
-            // Increase score
-            gameState.score += 100;
-            updateScoreDisplay(gameState.score);
-            
-            // Break inner loop since projectile is now removed
-            break;
-          }
-        } catch (e) {
-          console.error("Error checking enemy collision:", e);
-        }
+        // Break inner loop since projectile is now removed
+        break;
       }
-    } catch (e) {
-      console.warn("Invalid projectile found, removing", e);
-      
-      // Clean up invalid projectile
-      if (projectile.mesh && projectile.mesh.parent) {
-        projectile.mesh.parent.remove(projectile.mesh);
-      }
-      
-      gameState.projectiles.splice(i, 1);
     }
   }
 }
