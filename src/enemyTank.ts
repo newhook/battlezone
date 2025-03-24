@@ -8,6 +8,9 @@ export class EnemyTank extends Tank {
   firingRange: number;
   lastAIUpdate: number = 0;
   aiUpdateInterval: number = 500;
+  patrolRadius: number = 50;  // How far the tank will patrol from its current position
+  minPatrolDistance: number = 20; // Minimum distance to move for patrol
+  arrivalThreshold: number = 5; // How close we need to get to consider reaching patrol point
 
   constructor(physicsWorld : PhysicsWorld, position: THREE.Vector3) {
     super(physicsWorld, position, 0xff0000); // Call base class constructor with red color
@@ -47,6 +50,55 @@ export class EnemyTank extends Tank {
     }
   }
 
+  generateNewPatrolPoint(): void {
+    const currentPos = this.mesh.position;
+    const angle = Math.random() * Math.PI * 2;
+    const distance = this.minPatrolDistance + Math.random() * (this.patrolRadius - this.minPatrolDistance);
+    
+    this.targetPosition = new THREE.Vector3(
+      currentPos.x + Math.sin(angle) * distance,
+      0.4, // Keep Y position constant
+      currentPos.z + Math.cos(angle) * distance
+    );
+  }
+
+  handlePatrol(): void {
+    if (!this.targetPosition) {
+      this.generateNewPatrolPoint();
+      return;
+    }
+
+    const tankPosition = this.mesh.position;
+    const distanceToTarget = tankPosition.distanceTo(this.targetPosition);
+
+    // If we've reached the target, generate a new one
+    if (distanceToTarget < this.arrivalThreshold) {
+      this.generateNewPatrolPoint();
+      return;
+    }
+
+    // Get current forward direction
+    const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(this.mesh.quaternion);
+    
+    // Calculate direction to target
+    const directionToTarget = new THREE.Vector3()
+      .subVectors(this.targetPosition, tankPosition)
+      .normalize();
+    
+    // Calculate angle to target
+    const angleToTarget = forward.angleTo(directionToTarget);
+    
+    // Get turn direction (1 for left, -1 for right)
+    const turnDirection = this.calculateTurnDirection(forward, directionToTarget);
+    
+    // First rotate to face the target
+    if (Math.abs(angleToTarget) > 0.1) {
+      this.turn(turnDirection);
+    } else {
+      this.move(1);
+    }
+  }
+
   update(): void {
     super.update();
     
@@ -63,10 +115,11 @@ export class EnemyTank extends Tank {
     
     // If player is within detection range, engage
     if (distanceToPlayer < this.detectionRange) {
+      this.targetPosition = null; // Cancel current patrol when player is detected
       this.handleMovement(playerPosition, tankPosition);
     } else {
-      // Random patrol behavior could be implemented here
-      this.move(0); // Stop moving when player is out of range
+      // Handle patrol behavior
+      this.handlePatrol();
     }
       
     // Update AI behavior at fixed intervals
