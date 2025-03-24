@@ -114,6 +114,8 @@ async function init() {
 
     // Initialize game state manager
     gameStateManager = new GameStateManager(scene, camera, config);
+    // Make gameStateManager accessible globally
+    (window as any).gameStateManager = gameStateManager;
     
     // Initialize fly camera
     const flyCamera = new FlyCamera(camera);

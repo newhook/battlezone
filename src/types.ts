@@ -33,6 +33,7 @@ declare global {
   interface Window {
     gameState: GameState | undefined;
     physicsWorld: PhysicsWorld;
+    gameStateManager: any; // Add this line
   }
 }
 

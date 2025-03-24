@@ -71,10 +71,12 @@ export class Projectile implements GameObject {
         window.physicsWorld.removeBody(this);
       }
       
-      if (window.gameState) {
-        const index = window.gameState.projectiles.indexOf(this);
+      // Look for this projectile in the PlayState's projectiles array
+      const playState = window.gameStateManager?.getPlayState();
+      if (playState) {
+        const index = playState.projectiles.indexOf(this);
         if (index !== -1) {
-          window.gameState.projectiles.splice(index, 1);
+          playState.projectiles.splice(index, 1);
         }
       }
     } catch (e) {

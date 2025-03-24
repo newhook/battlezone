@@ -196,11 +196,17 @@ export abstract class Tank implements Vehicle {
           window.physicsWorld
         );
 
-        // Add to physics world and game state
+        // Add to physics world
         window.physicsWorld.addBody(projectile);
-        if (window.gameState) {
-          window.gameState.projectiles.push(projectile);
+
+        // Find the current PlayState instance
+        const gameStateManager = (window as any).gameStateManager;
+        if (gameStateManager && gameStateManager.getPlayState()) {
+          const playState = gameStateManager.getPlayState();
+          // Add projectile to PlayState's projectiles array
+          playState.projectiles.push(projectile);
         }
+
       } catch (error) {
         console.error("Error creating projectile:", error);
       }
