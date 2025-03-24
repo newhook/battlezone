@@ -4,6 +4,7 @@ import { setupGame, updateGame } from './game';
 import { setupInputHandlers } from './input';
 import { FlyCamera } from './flyCamera';
 import { GameConfig, defaultConfig } from './config';
+import { Radar } from './radar';
 
 // Function to initialize the app
 async function init() {
@@ -27,6 +28,17 @@ async function init() {
     
     // Initialize fly camera
     const flyCamera = new FlyCamera(camera);
+    
+    // Initialize radar
+    const radar = new Radar();
+    
+    // Fade out instructions after 5 seconds
+    setTimeout(() => {
+      const instructions = document.getElementById('instructions');
+      if (instructions) {
+        instructions.style.opacity = '0';
+      }
+    }, 5000);
     
     // Previous toggle state to detect changes
     let prevToggleState = input.toggleFlyCamera;
@@ -124,6 +136,9 @@ async function init() {
       // Get elapsed time since last frame
       const deltaTime = clock.getDelta();
       
+      // Update radar with current game state
+      radar.update(gameState.player, gameState.enemies);
+      
       // Check if the fly camera toggle has changed
       if (input.toggleFlyCamera !== prevToggleState) {
         // If we're going from fly mode to tank mode, reset the camera position
@@ -160,7 +175,7 @@ async function init() {
       if (flyCamera.enabled) {
         flyCamera.update(input, deltaTime);
       } else {
-        updateCamera(camera, gameState.player.mesh);
+        updateCamera(camera, gameState.player);
       }
       
       // Render the scene
@@ -249,6 +264,7 @@ async function init() {
       const position = flyCamera.enabled ? camera.position : gameState.player.mesh.position;
       coordDisplay.innerHTML = `Position:<br>X: ${position.x.toFixed(2)}<br>Y: ${position.y.toFixed(2)}<br>Z: ${position.z.toFixed(2)}`;
     }, 100); // Update 10 times per second
+
   } catch (error) {
     console.error('Error initializing game:', error);
     const loadingElement = document.getElementById('loading');

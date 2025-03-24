@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { Tank } from './tank';
 
 export interface SceneSetup {
   scene: THREE.Scene;
@@ -12,15 +13,16 @@ export function initScene(): SceneSetup {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x000000);
 
-  // Set up camera with increased far plane for larger terrain
+  // Set up camera with increased far plane and narrower FOV for first person view
   const camera = new THREE.PerspectiveCamera(
-    75,
+    60, // Reduced FOV for more realistic first person view
     window.innerWidth / window.innerHeight,
     0.1,
     2000
   );
-  camera.position.set(0, 8, -10);
-  camera.lookAt(0, 0, 0);
+  // Initial position will be adjusted by updateCamera, these are just starting values
+  camera.position.set(0, 1.5, 0);
+  camera.lookAt(0, 1.5, 10);
 
   // Create renderer
   const renderer = new THREE.WebGLRenderer({
@@ -32,15 +34,15 @@ export function initScene(): SceneSetup {
   renderer.setClearColor(0x000000, 1);
 
   // Add lighting
-  const ambientLight = new THREE.AmbientLight(0x404040, 1);
+  const ambientLight = new THREE.AmbientLight(0x404040, 2.0); // Doubled from 1.0
   scene.add(ambientLight);
 
-  const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+  const directionalLight = new THREE.DirectionalLight(0xffffff, 1.5); // Increased from 1.0
   directionalLight.position.set(10, 20, 10);
   scene.add(directionalLight);
   
   // Add a distant point light to simulate moonlight
-  const moonLight = new THREE.PointLight(0x7777ff, 0.5, 1000);
+  const moonLight = new THREE.PointLight(0x7777ff, 1.0, 1000); // Doubled from 0.5
   moonLight.position.set(-150, 300, -150);
   scene.add(moonLight);
   
@@ -113,15 +115,25 @@ function createOrientationGuide(scene: THREE.Scene) {
   };
 }
 
-// Update the camera to follow the player
-export function updateCamera(camera: THREE.PerspectiveCamera, playerMesh: THREE.Mesh) {
-  // Position camera relative to player
-  const cameraOffset = new THREE.Vector3(0, 8, -10);
-  cameraOffset.applyQuaternion(playerMesh.quaternion);
+// Update the camera to follow the player in first person view
+export function updateCamera(camera: THREE.PerspectiveCamera, player: Tank) {
+  // Get the turret container safely using the getter method
+  const turretContainer = player.getTurretContainer();
+  if (!turretContainer) return;
+
+  // Position camera under the cannon
+  const cameraOffset = new THREE.Vector3(0, 1.25, 0); // Slightly below turret height
   
-  // Set camera position relative to player
-  camera.position.copy(playerMesh.position).add(cameraOffset);
+  // Apply tank's position and rotation
+  camera.position.copy(player.mesh.position).add(cameraOffset);
   
-  // Make camera look at player
-  camera.lookAt(playerMesh.position);
+  // Create forward direction based on tank and turret rotation
+  const forward = new THREE.Vector3(0, 0, 1);
+  const combinedRotation = new THREE.Quaternion()
+    .multiplyQuaternions(player.mesh.quaternion, turretContainer.quaternion);
+  forward.applyQuaternion(combinedRotation);
+  
+  // Look in the direction the turret is facing
+  const lookAtPoint = camera.position.clone().add(forward.multiplyScalar(10));
+  camera.lookAt(lookAtPoint);
 }
