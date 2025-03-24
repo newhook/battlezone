@@ -574,10 +574,18 @@ export class PlayState implements IGameState {
           healthDisplay.style.padding = '5px';
           healthDisplay.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
           healthDisplay.style.border = '1px solid #00ff00';
+          healthDisplay.style.textAlign = 'center'; // Center the text
+          healthDisplay.style.width = '150px'; // Set a fixed width to match the health bar
+          
+          // Create the health text container
+          const healthText = document.createElement('div');
+          healthText.id = 'health-text';
+          healthText.textContent = `HEALTH: ${Math.max(0, this.player.hitpoints)}`;
+          healthDisplay.appendChild(healthText);
           
           // Create a container for the health bar
           const healthBarContainer = document.createElement('div');
-          healthBarContainer.style.width = '150px';
+          healthBarContainer.style.width = '100%'; // Use full width of the parent
           healthBarContainer.style.height = '15px';
           healthBarContainer.style.border = '1px solid #00ff00';
           healthBarContainer.style.marginTop = '5px';
@@ -616,7 +624,11 @@ export class PlayState implements IGameState {
           healthBar.style.backgroundColor = healthColor;
         }
         
-        healthDisplay.firstChild.textContent = `HEALTH: ${Math.max(0, this.player.hitpoints)}`;
+        // Update the health text
+        const healthText = document.getElementById('health-text');
+        if (healthText) {
+          healthText.textContent = `HEALTH: ${Math.max(0, this.player.hitpoints)}`;
+        }
       }
 
     private applyCameraShake(): void {
