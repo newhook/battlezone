@@ -49,50 +49,6 @@ export function initScene(): SceneSetup {
   const axesHelper = new THREE.AxesHelper(axisLength);
   scene.add(axesHelper);
   
-  // Create text labels for axes
-  const createAxisLabel = (text: string, position: THREE.Vector3, color: string) => {
-    const canvas = document.createElement('canvas');
-    canvas.width = 128;
-    canvas.height = 64;
-    
-    const context = canvas.getContext('2d');
-    if (context) {
-        context.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        context.fillRect(0, 0, canvas.width, canvas.height);
-        
-        context.font = 'bold 32px Arial';
-        context.fillStyle = color;
-        context.textAlign = 'center';
-        context.textBaseline = 'middle';
-        context.fillText(text, canvas.width / 2, canvas.height / 2);
-    }
-    
-    const texture = new THREE.CanvasTexture(canvas);
-    const material = new THREE.SpriteMaterial({ map: texture });
-    const sprite = new THREE.Sprite(material);
-    
-    sprite.position.copy(position);
-    sprite.scale.set(5, 2.5, 1);
-    
-    scene.add(sprite);
-    return sprite;
-  };
-  
-  // Add labels for each axis
-  createAxisLabel('X (Red)', new THREE.Vector3(axisLength + 2, 0, 0), '#ff0000');
-  createAxisLabel('Y (Green)', new THREE.Vector3(0, axisLength + 2, 0), '#00ff00');
-  createAxisLabel('Z (Blue)', new THREE.Vector3(0, 0, axisLength + 2), '#0000ff');
-  createAxisLabel('Origin', new THREE.Vector3(0, 0, 0), '#ffffff');
-  
-  // Add directional compass (N,S,E,W indicators)
-  const compassRadius = 25;
-  createAxisLabel('N (+Z)', new THREE.Vector3(0, 0, compassRadius), '#00ffff');
-  createAxisLabel('S (-Z)', new THREE.Vector3(0, 0, -compassRadius), '#00ffff');
-  createAxisLabel('E (+X)', new THREE.Vector3(compassRadius, 0, 0), '#ff00ff');
-  createAxisLabel('W (-X)', new THREE.Vector3(-compassRadius, 0, 0), '#ff00ff');
-  createAxisLabel('UP (+Y)', new THREE.Vector3(0, compassRadius, 0), '#ffff00');
-  createAxisLabel('DOWN (-Y)', new THREE.Vector3(0, -5, 0), '#ffff00');
-  
   // Create a world orientation guide that shows at the corner of the screen
   createOrientationGuide(scene);
   
