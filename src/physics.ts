@@ -66,36 +66,6 @@ export class PhysicsWorld implements PhysicsWorldType {
   }
 }
 
-export function createVehicleBody(
-  size: { width: number, height: number, depth: number }, 
-  mass: number,
-  world: RAPIER.World
-): RAPIER.RigidBody {
-  // Create rigid body description
-  const rigidBodyDesc = RAPIER.RigidBodyDesc.dynamic()
-    .setTranslation(0, size.height / 2, 0)
-    .setLinearDamping(0.5)  // Increased from 0.1 to 1.0 for more resistance to movement
-    .setAngularDamping(1.0); // Increased from 0.2 to 2.0 for more resistance to rotation
-  
-  const body = world.createRigidBody(rigidBodyDesc);
-  
-  // Create collider
-  const colliderDesc = RAPIER.ColliderDesc.cuboid(
-    size.width / 2, 
-    size.height / 2, 
-    size.depth / 2
-  );
-  
-  // Set mass properties
-  colliderDesc.setDensity(mass / (size.width * size.height * size.depth));
-  colliderDesc.setFriction(1.5);    // Increased from 0.7 for much better grip
-  colliderDesc.setRestitution(0.0); // Reduced from 0.1 to eliminate bouncing
-  
-  // Attach collider to body
-  world.createCollider(colliderDesc, body);
-  
-  return body;
-}
 
 export function createObstacleBody(
   size: { width: number, height: number, depth: number }, 

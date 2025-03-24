@@ -25,6 +25,7 @@ export interface GameState {
   projectiles: GameObject[];
   score: number;
   gameOver: boolean;
+  isMarqueeMode: boolean;
 }
 
 // Global declarations for access across modules
@@ -32,6 +33,7 @@ declare global {
   interface Window {
     gameState: GameState | undefined;
     physicsWorld: PhysicsWorld;
+    gameStateManager: any; // Add this line
   }
 }
 
