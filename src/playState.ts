@@ -26,6 +26,13 @@ export class PlayState implements IGameState {
     radar: Radar;
     prevWireframeState: boolean = false;
     input?: InputState;
+    config: GameConfig;
+    
+    // Level progression properties
+    currentLevel: number = 1;
+    baseEnemyCount: number = 10;
+    enemiesDefeated: number = 0;
+    levelComplete: boolean = false;
 
     constructor(gameStateManager: GameStateManager) {
         // Create scene
@@ -33,14 +40,13 @@ export class PlayState implements IGameState {
         this.scene.background = new THREE.Color(0x000000);
 
         // Setup game state with configuration
-        const config: GameConfig = {
+        this.config = {
             ...defaultConfig,
         };
 
         this.gameStateManager = gameStateManager;
-        this.physicsWorld = new PhysicsWorld(config);
-        this.initializeGameObjects(config);
-
+        this.physicsWorld = new PhysicsWorld(this.config);
+        this.initializeGameObjects(this.config);
 
         // Set up camera with increased far plane and narrower FOV for first person view
         this.camera = new THREE.PerspectiveCamera(
@@ -119,9 +125,11 @@ export class PlayState implements IGameState {
         this.scene.add(this.player.mesh);
         this.physicsWorld.addBody(this.player);
 
-        // Create enemy tanks
+        // Create enemy tanks for level 1 - use baseEnemyCount instead of enemyCount
         const halfWorldSize = config.worldSize / 2 - 20;
-        for (let i = 0; i < config.enemyCount; i++) {
+        
+        // Create base number of enemies for first level
+        for (let i = 0; i < config.baseEnemyCount; i++) {
             let x = 0, z = 0;
             do {
                 x = (Math.random() * (halfWorldSize * 2)) - halfWorldSize;
@@ -266,10 +274,15 @@ export class PlayState implements IGameState {
         if (this.flyCamera.enabled) {
             this.flyCamera.update(this.input, deltaTime);
         } else {
-            this.updateCamera()
+            this.updateCamera();
         }
         this.radar.update(this.player, this.enemies);
 
+        // Check for level completion
+        if (!this.levelComplete && this.enemies.length === 0) {
+            this.levelComplete = true;
+            this.showLevelComplete();
+        }
     }
 
     private toggleWireframeMode(scene: THREE.Scene, isWireframe: boolean) {
@@ -580,7 +593,7 @@ export class PlayState implements IGameState {
           // Create the health text container
           const healthText = document.createElement('div');
           healthText.id = 'health-text';
-          healthText.textContent = `HEALTH: ${Math.max(0, this.player.hitpoints)}`;
+          healthText.textContent = `HEALTH: ${Math.max(0, this.player.hitpoints)}/${this.player.maxHitpoints}`;
           healthDisplay.appendChild(healthText);
           
           // Create a container for the health bar
@@ -605,7 +618,7 @@ export class PlayState implements IGameState {
         }
         
         // Set color based on health percentage
-        const healthPercentage = this.player.hitpoints / 15; // 15 is max health
+        const healthPercentage = this.player.hitpoints / this.player.maxHitpoints;
         let healthColor = '#00ff00'; // Green
         
         if (healthPercentage < 0.3) {
@@ -627,7 +640,7 @@ export class PlayState implements IGameState {
         // Update the health text
         const healthText = document.getElementById('health-text');
         if (healthText) {
-          healthText.textContent = `HEALTH: ${Math.max(0, this.player.hitpoints)}`;
+          healthText.textContent = `HEALTH: ${Math.max(0, this.player.hitpoints)}/${this.player.maxHitpoints}`;
         }
       }
 
@@ -949,5 +962,174 @@ export class PlayState implements IGameState {
           gameOverScreen.addEventListener('click', handleClick);
           document.addEventListener('keydown', handleKeydown);
         }, 1000);
+      }
+
+      private showLevelComplete(): void {
+        // Create level complete screen
+        const levelCompleteScreen = document.createElement('div');
+        levelCompleteScreen.id = 'level-complete-screen';
+        levelCompleteScreen.style.position = 'absolute';
+        levelCompleteScreen.style.top = '0';
+        levelCompleteScreen.style.left = '0';
+        levelCompleteScreen.style.width = '100%';
+        levelCompleteScreen.style.height = '100%';
+        levelCompleteScreen.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+        levelCompleteScreen.style.color = '#00ff00';
+        levelCompleteScreen.style.fontFamily = 'monospace';
+        levelCompleteScreen.style.fontSize = '48px';
+        levelCompleteScreen.style.display = 'flex';
+        levelCompleteScreen.style.flexDirection = 'column';
+        levelCompleteScreen.style.justifyContent = 'center';
+        levelCompleteScreen.style.alignItems = 'center';
+        levelCompleteScreen.style.zIndex = '2000';
+        levelCompleteScreen.style.cursor = 'pointer';
+        levelCompleteScreen.innerHTML = `
+          <div>LEVEL ${this.currentLevel} COMPLETE!</div>
+          <div style="font-size: 24px; margin-top: 20px;">Score: ${this.score}</div>
+          <div style="font-size: 20px; margin-top: 40px;">Click anywhere to continue to Level ${this.currentLevel + 1}</div>
+        `;
+        
+        document.body.appendChild(levelCompleteScreen);
+        
+        // Add click event listener to progress to the next level
+        const handleClick = () => {
+          // Remove event listeners
+          levelCompleteScreen.removeEventListener('click', handleClick);
+          document.removeEventListener('keydown', handleKeydown);
+          
+          // Fade out level complete screen
+          levelCompleteScreen.style.transition = 'opacity 1s ease-out';
+          levelCompleteScreen.style.opacity = '0';
+          
+          // Remove the screen after fade out and start next level
+          setTimeout(() => {
+            if (levelCompleteScreen.parentNode) {
+              levelCompleteScreen.parentNode.removeChild(levelCompleteScreen);
+            }
+            
+            // Start the next level
+            this.startNextLevel();
+          }, 1000);
+        };
+        
+        // Also allow pressing any key to continue
+        const handleKeydown = () => {
+          handleClick();
+        };
+        
+        // Add event listeners after a short delay to prevent accidental clicks
+        setTimeout(() => {
+          levelCompleteScreen.addEventListener('click', handleClick);
+          document.addEventListener('keydown', handleKeydown);
+        }, 1000);
+      }
+    
+      private startNextLevel(): void {
+        // Increment level
+        this.currentLevel++;
+        
+        // Reset level completion flag
+        this.levelComplete = false;
+        
+        // Increase player max hitpoints and heal
+        const newMaxHitpoints = 15 + (this.currentLevel - 1) * this.config.playerHealthBonus;
+        this.player.maxHitpoints = newMaxHitpoints;
+        this.player.hitpoints = Math.min(this.player.hitpoints + this.config.playerHealAmount, newMaxHitpoints);
+        
+        // Calculate scaled parameters for enemies based on level
+        const levelScaling = {
+          count: this.config.baseEnemyCount + (this.currentLevel - 1) * this.config.enemiesPerLevel,
+          speedMultiplier: 1 + (this.currentLevel - 1) * (this.config.enemySpeedScale - 1),
+          rangeMultiplier: 1 + (this.currentLevel - 1) * (this.config.enemyRangeScale - 1),
+          hitpointsMultiplier: 1 + (this.currentLevel - 1) * (this.config.enemyHealthScale - 1)
+        };
+        
+        // Spawn new enemies with scaled parameters
+        this.spawnEnemiesForLevel(levelScaling);
+        
+        // Update UI
+        this.showHealthNotification();
+        this.showLevelNotification();
+      }
+    
+      private spawnEnemiesForLevel(scaling: { 
+        count: number,
+        speedMultiplier: number,
+        rangeMultiplier: number,
+        hitpointsMultiplier: number
+      }): void {
+        // Clear any remaining enemies (shouldn't be any, but just in case)
+        this.enemies.forEach(enemy => {
+          if (enemy.mesh.parent) {
+            enemy.mesh.parent.remove(enemy.mesh);
+          }
+          if (enemy.body) {
+            this.physicsWorld.removeBody(enemy);
+          }
+        });
+        this.enemies = [];
+        
+        // Get world bounds from config
+        const config = defaultConfig;
+        const halfWorldSize = config.worldSize / 2 - 20;
+        
+        // Create new scaled enemies
+        for (let i = 0; i < scaling.count; i++) {
+          // Random position far from player
+          let x = 0, z = 0;
+          do {
+            x = (Math.random() * (halfWorldSize * 2)) - halfWorldSize;
+            z = (Math.random() * (halfWorldSize * 2)) - halfWorldSize;
+          } while (Math.sqrt(x*x + z*z) < config.minEnemyDistance);
+          
+          // Create enemy tank at the position
+          const enemy = new EnemyTank(this, new THREE.Vector3(x, 0.4, z));
+          
+          // Apply level scaling to enemy properties
+          enemy.speed *= scaling.speedMultiplier;
+          enemy.detectionRange *= scaling.rangeMultiplier;
+          enemy.firingRange *= scaling.rangeMultiplier;
+          enemy.hitpoints = Math.floor(10 * scaling.hitpointsMultiplier);
+          
+          // Add to arrays and scene
+          this.enemies.push(enemy);
+          this.scene.add(enemy.mesh);
+          this.physicsWorld.addBody(enemy);
+        }
+      }
+    
+      private showLevelNotification(): void {
+        // Create level notification
+        const levelNotification = document.createElement('div');
+        levelNotification.style.position = 'absolute';
+        levelNotification.style.top = '50%';
+        levelNotification.style.left = '50%';
+        levelNotification.style.transform = 'translate(-50%, -50%)';
+        levelNotification.style.color = '#00ff00';
+        levelNotification.style.fontFamily = 'monospace';
+        levelNotification.style.fontSize = '36px';
+        levelNotification.style.padding = '20px';
+        levelNotification.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+        levelNotification.style.border = '2px solid #00ff00';
+        levelNotification.style.transition = 'opacity 1s ease-in-out';
+        levelNotification.style.opacity = '1';
+        levelNotification.style.textAlign = 'center';
+        levelNotification.style.zIndex = '1000';
+        levelNotification.innerHTML = `
+          <div>LEVEL ${this.currentLevel}</div>
+          <div style="font-size: 20px; margin-top: 10px;">Enemies: ${this.enemies.length}</div>
+        `;
+        
+        document.body.appendChild(levelNotification);
+        
+        // Fade out after a few seconds
+        setTimeout(() => {
+          levelNotification.style.opacity = '0';
+          setTimeout(() => {
+            if (levelNotification.parentNode) {
+              document.body.removeChild(levelNotification);
+            }
+          }, 1000);
+        }, 3000);
       }
 }
