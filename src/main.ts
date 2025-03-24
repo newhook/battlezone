@@ -28,6 +28,14 @@ async function init() {
     // Initialize fly camera
     const flyCamera = new FlyCamera(camera);
     
+    // Fade out instructions after 5 seconds
+    setTimeout(() => {
+      const instructions = document.getElementById('instructions');
+      if (instructions) {
+        instructions.style.opacity = '0';
+      }
+    }, 5000);
+    
     // Previous toggle state to detect changes
     let prevToggleState = input.toggleFlyCamera;
     
