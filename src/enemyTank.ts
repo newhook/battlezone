@@ -23,9 +23,9 @@ export class EnemyTank extends Tank {
 
   startAI(): void {
     // Run AI behavior at fixed intervals
-    // this.aiIntervalId = window.setInterval(() => {
-    //   this.updateAI();
-    // }, this.aiUpdateInterval);
+    this.aiIntervalId = window.setInterval(() => {
+      this.updateAI();
+    }, this.aiUpdateInterval);
   }
 
   stopAI(): void {
