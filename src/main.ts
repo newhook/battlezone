@@ -175,7 +175,7 @@ async function init() {
       if (flyCamera.enabled) {
         flyCamera.update(input, deltaTime);
       } else {
-        updateCamera(camera, gameState.player.mesh);
+        updateCamera(camera, gameState.player);
       }
       
       // Render the scene

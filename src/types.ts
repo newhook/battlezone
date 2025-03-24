@@ -19,7 +19,7 @@ export interface Vehicle extends GameObject {
 }
 
 export interface GameState {
-  player: Vehicle;
+  player: import('./tank').Tank;
   enemies: Vehicle[];
   terrain: GameObject[];
   projectiles: GameObject[];

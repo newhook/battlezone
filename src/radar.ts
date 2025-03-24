@@ -63,8 +63,8 @@ export class Radar {
             }
             .radar-blip {
                 position: absolute;
-                width: 8px;
-                height: 8px;
+                width: 4px;
+                height: 4px;
                 background-color: #ff0000;
                 border-radius: 50%;
                 transform: translate(-50%, -50%);
@@ -73,8 +73,8 @@ export class Radar {
                 position: absolute;
                 top: 50%;
                 left: 50%;
-                width: 10px;
-                height: 10px;
+                width: 6px;
+                height: 6px;
                 background-color: #00ff00;
                 border-radius: 50%;
                 transform: translate(-50%, -50%);

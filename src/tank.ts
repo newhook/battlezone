@@ -17,6 +17,14 @@ export abstract class Tank implements Vehicle {
   protected turretContainer: THREE.Object3D;
   protected cannonMesh: THREE.Mesh;
 
+  /**
+   * Safely access the tank's turret container
+   * @returns The turret container object
+   */
+  public getTurretContainer(): THREE.Object3D {
+    return this.turretContainer;
+  }
+
   constructor(
     physicsWorld : PhysicsWorld,
     position: THREE.Vector3 = new THREE.Vector3(0, 0.4, 0),

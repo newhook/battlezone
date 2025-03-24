@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { Tank } from './tank';
 
 export interface SceneSetup {
   scene: THREE.Scene;
@@ -115,21 +116,21 @@ function createOrientationGuide(scene: THREE.Scene) {
 }
 
 // Update the camera to follow the player in first person view
-export function updateCamera(camera: THREE.PerspectiveCamera, playerMesh: THREE.Mesh) {
-  // Find the turret container (the first child of the tank mesh)
-  const turretContainer = playerMesh.children[0];
+export function updateCamera(camera: THREE.PerspectiveCamera, player: Tank) {
+  // Get the turret container safely using the getter method
+  const turretContainer = player.getTurretContainer();
   if (!turretContainer) return;
 
   // Position camera under the cannon
   const cameraOffset = new THREE.Vector3(0, 1.25, 0); // Slightly below turret height
   
   // Apply tank's position and rotation
-  camera.position.copy(playerMesh.position).add(cameraOffset);
+  camera.position.copy(player.mesh.position).add(cameraOffset);
   
   // Create forward direction based on tank and turret rotation
   const forward = new THREE.Vector3(0, 0, 1);
   const combinedRotation = new THREE.Quaternion()
-    .multiplyQuaternions(playerMesh.quaternion, turretContainer.quaternion);
+    .multiplyQuaternions(player.mesh.quaternion, turretContainer.quaternion);
   forward.applyQuaternion(combinedRotation);
   
   // Look in the direction the turret is facing
