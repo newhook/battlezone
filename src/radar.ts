@@ -90,6 +90,14 @@ export class Radar {
         `;
     }
 
+    hide() : void {
+        this.element.style.display = 'none';
+    }
+
+    show() : void {
+        this.element.style.display = 'block';
+    }
+
     update(player: Vehicle, enemies: Vehicle[]) {
         // Remove old blips
         const oldBlips = this.element.getElementsByClassName('radar-blip');

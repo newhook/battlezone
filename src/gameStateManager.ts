@@ -1,17 +1,17 @@
-import { IGameState, MarqueeState, PlayState } from './gameStates';
 import * as THREE from 'three';
+import { IGameState} from './gameStates';
+import { MarqueeState} from './marqueeState';
+import { PlayState } from './playState';
 import { GameConfig } from './config';
-import { InputState } from './types';
-import { FlyCamera } from './flyCamera';
 
 export class GameStateManager {
     private currentState: IGameState;
     private marqueeState: MarqueeState;
     private playState: PlayState;
 
-    constructor(scene: THREE.Scene, camera: THREE.PerspectiveCamera, config: GameConfig) {
-        this.marqueeState = new MarqueeState(scene, camera);
-        this.playState = new PlayState(scene, camera, config);
+    constructor(scene: THREE.Scene, config: GameConfig) {
+        this.marqueeState = new MarqueeState(this, scene);
+        this.playState = new PlayState(this, scene, config);
         this.currentState = this.marqueeState;
         this.currentState.onEnter();
     }
@@ -36,11 +36,11 @@ export class GameStateManager {
         return this.playState;
     }
 
-    handleInput(input: InputState, flyCamera: FlyCamera): void {
-        this.currentState.handleInput(input, flyCamera);
-    }
-
     update(deltaTime: number): void {
         this.currentState.update(deltaTime);
+    }
+
+    render(renderer: THREE.WebGLRenderer): void {
+        this.currentState.render(renderer);
     }
 }

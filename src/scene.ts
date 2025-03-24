@@ -3,7 +3,6 @@ import { Tank } from './tank';
 
 export interface SceneSetup {
   scene: THREE.Scene;
-  camera: THREE.PerspectiveCamera;
   renderer: THREE.WebGLRenderer;
   clock: THREE.Clock;
 }
@@ -48,17 +47,6 @@ export function initScene(): SceneSetup {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x000000);
 
-  // Set up camera with increased far plane and narrower FOV for first person view
-  const camera = new THREE.PerspectiveCamera(
-    60, // Reduced FOV for more realistic first person view
-    window.innerWidth / window.innerHeight,
-    0.1,
-    2000
-  );
-  // Initial position will be adjusted by updateCamera, these are just starting values
-  camera.position.set(0, 1.5, 0);
-  camera.lookAt(0, 1.5, 10);
-
   // Create renderer
   const renderer = new THREE.WebGLRenderer({
     antialias: true,
@@ -92,7 +80,7 @@ export function initScene(): SceneSetup {
   // Create clock for time-based animations
   const clock = new THREE.Clock();
 
-  return { scene, camera, renderer, clock };
+  return { scene, renderer, clock };
 }
 
 // Creates a small orientation guide that stays in the corner of the screen
