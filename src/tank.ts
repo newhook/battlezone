@@ -66,8 +66,8 @@ export abstract class Tank implements Vehicle {
     
     // Physics body will be created when the tank is added to the world
     // For now, just initialize properties
-    this.speed = 150;  // Base movement force
-    this.turnSpeed = 20;  // Base rotation speed
+    this.speed = 50; 
+    this.turnSpeed = 5;
     this.canFire = true;
     this.lastFired = 0;
     
@@ -121,8 +121,36 @@ export abstract class Tank implements Vehicle {
     // Ensure the body is awake
     this.body.wakeUp();
     
-    // Apply torque for rotation (around Y axis)
-    const torque = { x: 0, y: direction * this.turnSpeed, z: 0 };
+    // For tanks, we want to rotate in place by applying direct rotation
+    // rather than just torque which requires forward movement
+    
+    // Get current rotation
+    const rotation = this.body.rotation();
+    const currentQuat = new THREE.Quaternion(
+      rotation.x, rotation.y, rotation.z, rotation.w
+    );
+    
+    // Create a rotation quaternion for the turn
+    const turnQuat = new THREE.Quaternion();
+    turnQuat.setFromAxisAngle(
+      new THREE.Vector3(0, 1, 0), // Y-axis rotation
+      direction * this.turnSpeed * 0.005 // Reduced from 0.01 to 0.005 for smoother rotation
+    );
+    
+    // Combine rotations
+    const newQuat = currentQuat.multiply(turnQuat);
+    
+    // Apply the new rotation directly
+    this.body.setRotation({
+      x: newQuat.x,
+      y: newQuat.y,
+      z: newQuat.z,
+      w: newQuat.w
+    }, true);
+    
+    // Also apply a small amount of torque to make the rotation feel more natural
+    // and to overcome any friction
+    const torque = { x: 0, y: direction * this.turnSpeed * 0.2, z: 0 }; // Reduced from 0.5 to 0.2
     this.body.applyTorqueImpulse(torque, true);
   }
 
