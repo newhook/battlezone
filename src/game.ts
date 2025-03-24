@@ -80,7 +80,8 @@ export function setupGame(scene: THREE.Scene, config: GameConfig = defaultConfig
     terrain: allTerrain,
     projectiles: [],
     score: 0,
-    gameOver: false
+    gameOver: false,
+    isMarqueeMode: true // Initialize in marquee mode
   };
   
   // Store references in window for cross-module access

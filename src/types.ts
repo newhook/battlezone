@@ -25,6 +25,7 @@ export interface GameState {
   projectiles: GameObject[];
   score: number;
   gameOver: boolean;
+  isMarqueeMode: boolean;
 }
 
 // Global declarations for access across modules

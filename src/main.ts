@@ -7,6 +7,88 @@ import { GameConfig, defaultConfig } from './config';
 import { Radar } from './radar';
 
 // Function to initialize the app
+let isGameStarted = false;
+
+// Add title screen overlay
+function createTitleScreen() {
+  const titleScreen = document.createElement('div');
+  titleScreen.id = 'title-screen';
+  titleScreen.innerHTML = `
+    <div class="title">BATTLEZONE</div>
+    <div class="press-start">PRESS SPACE TO START</div>
+    <div class="credits">MOVEMENT: WASD/ARROWS<br>FIRE: SPACE/MOUSE<br>TURRET: Q/E</div>
+  `;
+  document.body.appendChild(titleScreen);
+
+  // Add title screen styles
+  const style = document.createElement('style');
+  style.textContent = `
+    #title-screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      color: #00ff00;
+      font-family: monospace;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+    }
+    .title {
+      font-size: 48px;
+      margin-bottom: 40px;
+      text-shadow: 0 0 10px #00ff00;
+    }
+    .press-start {
+      font-size: 24px;
+      animation: blink 1s infinite;
+    }
+    .credits {
+      position: absolute;
+      bottom: 40px;
+      text-align: center;
+      font-size: 16px;
+      line-height: 1.5;
+    }
+    @keyframes blink {
+      50% { opacity: 0; }
+    }
+  `;
+  document.head.appendChild(style);
+
+  return titleScreen;
+}
+
+// Handle game start
+function startGame(titleScreen: HTMLElement) {
+  isGameStarted = true;
+  titleScreen.style.opacity = '0';
+  setTimeout(() => titleScreen.remove(), 1000);
+  setMarqueeMode(false);
+  
+  // Show the instructions element
+  const instructions = document.getElementById('instructions');
+  if (instructions) {
+    instructions.style.display = 'block';
+    instructions.style.opacity = '1';
+  }
+
+  // Show score and FPS
+  const score = document.getElementById('score');
+  const fps = document.getElementById('fps');
+  if (score) score.style.opacity = '1';
+  if (fps) fps.style.opacity = '1';
+
+  // Update game state marquee mode
+  if (window.gameState) {
+    window.gameState.isMarqueeMode = false;
+  }
+}
+
 async function init() {
   try {
     console.log('Init function starting');
@@ -15,6 +97,15 @@ async function init() {
     // Initialize the scene
     const { scene, camera, renderer, clock } = initScene();
     document.body.appendChild(renderer.domElement);
+    
+    // Create and show title screen
+    const titleScreen = createTitleScreen();
+    
+    // Hide instructions initially
+    const instructions = document.getElementById('instructions');
+    if (instructions) {
+      instructions.style.display = 'none';
+    }
     
     // Setup input handlers
     const input = setupInputHandlers();
@@ -126,6 +217,13 @@ async function init() {
       });
     }
     
+    // Handle space key for game start
+    document.addEventListener('keydown', (event) => {
+      if (event.code === 'Space' && !isGameStarted) {
+        startGame(titleScreen);
+      }
+    });
+    
     // Set up animation loop
     function animate() {
       requestAnimationFrame(animate);
@@ -135,6 +233,7 @@ async function init() {
       
       // Get elapsed time since last frame
       const deltaTime = clock.getDelta();
+      const currentTime = clock.getElapsedTime() * 1000; // Convert to milliseconds
       
       // Update radar with current game state
       radar.update(gameState.player, gameState.enemies);
@@ -172,7 +271,9 @@ async function init() {
       updateGame(gameState, input, physicsWorld, deltaTime);
       
       // Update camera based on mode
-      if (flyCamera.enabled) {
+      if (!isGameStarted) {
+        updateMarqueeCamera(camera, currentTime);
+      } else if (flyCamera.enabled) {
         flyCamera.update(input, deltaTime);
       } else {
         updateCamera(camera, gameState.player);
@@ -182,7 +283,7 @@ async function init() {
       renderer.render(scene, camera);
       
       // Render orientation guide if it exists
-      if (scene.userData.orientationGuide) {
+      if (scene.userData.orientationGuide && isGameStarted) {
         const { scene: guideScene, camera: guideCamera } = scene.userData.orientationGuide;
         
         // Update orientation guide to match main camera's rotation

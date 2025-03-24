@@ -8,6 +8,41 @@ export interface SceneSetup {
   clock: THREE.Clock;
 }
 
+// Add new interface for marquee camera positions
+interface MarqueeCamera {
+  position: THREE.Vector3;
+  lookAt: THREE.Vector3;
+  duration: number;
+}
+
+// Add marquee camera configurations
+const marqueeCameras: MarqueeCamera[] = [
+  {
+    position: new THREE.Vector3(0, 30, 0),
+    lookAt: new THREE.Vector3(0, 0, 0),
+    duration: 5000
+  },
+  {
+    position: new THREE.Vector3(50, 5, 50),
+    lookAt: new THREE.Vector3(0, 2, 0),
+    duration: 4000
+  },
+  {
+    position: new THREE.Vector3(-30, 3, 20),
+    lookAt: new THREE.Vector3(0, 1, 0),
+    duration: 4000
+  },
+  {
+    position: new THREE.Vector3(0, 1.5, -40),
+    lookAt: new THREE.Vector3(0, 1.5, 0),
+    duration: 4000
+  }
+];
+
+let currentMarqueeIndex = 0;
+let marqueeStartTime = 0;
+let isMarqueeMode = true;
+
 export function initScene(): SceneSetup {
   // Create scene
   const scene = new THREE.Scene();
@@ -136,4 +171,45 @@ export function updateCamera(camera: THREE.PerspectiveCamera, player: Tank) {
   // Look in the direction the turret is facing
   const lookAtPoint = camera.position.clone().add(forward.multiplyScalar(10));
   camera.lookAt(lookAtPoint);
+}
+
+export function updateMarqueeCamera(camera: THREE.PerspectiveCamera, currentTime: number): void {
+  if (!isMarqueeMode) return;
+
+  if (marqueeStartTime === 0) {
+    marqueeStartTime = currentTime;
+  }
+
+  const current = marqueeCameras[currentMarqueeIndex];
+  const next = marqueeCameras[(currentMarqueeIndex + 1) % marqueeCameras.length];
+  const elapsedTime = currentTime - marqueeStartTime;
+
+  if (elapsedTime >= current.duration) {
+    // Move to next camera position
+    currentMarqueeIndex = (currentMarqueeIndex + 1) % marqueeCameras.length;
+    marqueeStartTime = currentTime;
+    return;
+  }
+
+  // Interpolate between current and next camera position
+  const progress = elapsedTime / current.duration;
+  const position = new THREE.Vector3().lerpVectors(
+    current.position,
+    next.position,
+    progress
+  );
+  const lookAt = new THREE.Vector3().lerpVectors(
+    current.lookAt,
+    next.lookAt,
+    progress
+  );
+
+  camera.position.copy(position);
+  camera.lookAt(lookAt);
+}
+
+export function setMarqueeMode(enabled: boolean): void {
+  isMarqueeMode = enabled;
+  currentMarqueeIndex = 0;
+  marqueeStartTime = 0;
 }
