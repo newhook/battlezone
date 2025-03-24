@@ -12,15 +12,16 @@ export function initScene(): SceneSetup {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x000000);
 
-  // Set up camera with increased far plane for larger terrain
+  // Set up camera with increased far plane and narrower FOV for first person view
   const camera = new THREE.PerspectiveCamera(
-    75,
+    60, // Reduced FOV for more realistic first person view
     window.innerWidth / window.innerHeight,
     0.1,
     2000
   );
-  camera.position.set(0, 8, -10);
-  camera.lookAt(0, 0, 0);
+  // Initial position will be adjusted by updateCamera, these are just starting values
+  camera.position.set(0, 1.5, 0);
+  camera.lookAt(0, 1.5, 10);
 
   // Create renderer
   const renderer = new THREE.WebGLRenderer({
@@ -113,15 +114,25 @@ function createOrientationGuide(scene: THREE.Scene) {
   };
 }
 
-// Update the camera to follow the player
+// Update the camera to follow the player in first person view
 export function updateCamera(camera: THREE.PerspectiveCamera, playerMesh: THREE.Mesh) {
-  // Position camera relative to player
-  const cameraOffset = new THREE.Vector3(0, 8, -10);
-  cameraOffset.applyQuaternion(playerMesh.quaternion);
+  // Find the turret container (the first child of the tank mesh)
+  const turretContainer = playerMesh.children[0];
+  if (!turretContainer) return;
+
+  // Position camera under the cannon
+  const cameraOffset = new THREE.Vector3(0, 1.25, 0); // Slightly below turret height
   
-  // Set camera position relative to player
+  // Apply tank's position and rotation
   camera.position.copy(playerMesh.position).add(cameraOffset);
   
-  // Make camera look at player
-  camera.lookAt(playerMesh.position);
+  // Create forward direction based on tank and turret rotation
+  const forward = new THREE.Vector3(0, 0, 1);
+  const combinedRotation = new THREE.Quaternion()
+    .multiplyQuaternions(playerMesh.quaternion, turretContainer.quaternion);
+  forward.applyQuaternion(combinedRotation);
+  
+  // Look in the direction the turret is facing
+  const lookAtPoint = camera.position.clone().add(forward.multiplyScalar(10));
+  camera.lookAt(lookAtPoint);
 }
