@@ -1,6 +1,5 @@
 
 import * as THREE from 'three';
-import { FlyCamera } from './flyCamera';
 import { InputState } from './types';
 import { IGameState } from './gameStates';
 import { GameStateManager } from './gameStateManager';
@@ -20,10 +19,12 @@ export class MarqueeState implements IGameState {
     private marqueeStartTime: number = 0;
     private titleScreen: HTMLDivElement;
 
-    constructor(gameStateManager: GameStateManager, scene: THREE.Scene) {
+    constructor(gameStateManager: GameStateManager) {
+        // Create scene
+        this.scene = new THREE.Scene();
+        this.scene.background = new THREE.Color(0x000000);
         this.createTitleScreen();
         this.gameStateManager = gameStateManager;
-        this.scene = scene;
         this.marqueeCameras = [
             {
                 position: new THREE.Vector3(0, 30, 0),
@@ -156,7 +157,7 @@ export class MarqueeState implements IGameState {
     }
 
     render(renderer: THREE.WebGLRenderer): void {
-      renderer.render(this.scene, this.camera);
+        renderer.render(this.scene, this.camera);
     }
 
     handleInput(_input: InputState): void {
@@ -215,5 +216,46 @@ export class MarqueeState implements IGameState {
         document.head.appendChild(style);
 
         this.titleScreen = titleScreen;
+    }
+
+    updateMarqueeCamera(camera: THREE.PerspectiveCamera, currentTime: number): void {
+        if (!isMarqueeMode) return;
+
+        if (marqueeStartTime === 0) {
+            marqueeStartTime = currentTime;
+        }
+
+        const current = marqueeCameras[currentMarqueeIndex];
+        const next = marqueeCameras[(currentMarqueeIndex + 1) % marqueeCameras.length];
+        const elapsedTime = currentTime - marqueeStartTime;
+
+        if (elapsedTime >= current.duration) {
+            // Move to next camera position
+            currentMarqueeIndex = (currentMarqueeIndex + 1) % marqueeCameras.length;
+            marqueeStartTime = currentTime;
+            return;
+        }
+
+        // Interpolate between current and next camera position
+        const progress = elapsedTime / current.duration;
+        const position = new THREE.Vector3().lerpVectors(
+            current.position,
+            next.position,
+            progress
+        );
+        const lookAt = new THREE.Vector3().lerpVectors(
+            current.lookAt,
+            next.lookAt,
+            progress
+        );
+
+        camera.position.copy(position);
+        camera.lookAt(lookAt);
+    }
+
+    setMarqueeMode(enabled: boolean): void {
+        isMarqueeMode = enabled;
+        currentMarqueeIndex = 0;
+        marqueeStartTime = 0;
     }
 }

@@ -4,17 +4,17 @@ import { PhysicsWorld } from './physics';
 import { PlayerTank } from './playerTank';
 import { EnemyTank } from './enemyTank';
 import { createTerrain, createGround, createBoundaryWalls } from './gameObjects';
-import { GameConfig } from './config';
 import { FlyCamera } from './flyCamera';
 import { IGameState } from './gameStates';
 import { Radar } from './radar';
 import { GameStateManager } from './gameStateManager';
+import { GameConfig, defaultConfig } from './config';
 
 export class PlayState implements IGameState {
     private gameStateManager: GameStateManager;
-    private scene: THREE.Scene;
+    scene: THREE.Scene;
+    physicsWorld: PhysicsWorld;
     private camera: THREE.PerspectiveCamera;
-    private physicsWorld: PhysicsWorld;
     player!: PlayerTank; // Using definite assignment assertion
     enemies: Vehicle[] = [];
     terrain: GameObject[] = [];
@@ -26,11 +26,21 @@ export class PlayState implements IGameState {
     prevWireframeState: boolean = false;
     input?: InputState;
 
-    constructor(gameStateManager: GameStateManager, scene: THREE.Scene, config: GameConfig) {
+    constructor(gameStateManager: GameStateManager) {
+        // Create scene
+        this.scene = new THREE.Scene();
+        this.scene.background = new THREE.Color(0x000000);
+
+        // Setup game state with configuration
+        const config: GameConfig = {
+            ...defaultConfig,
+        };
+
         this.gameStateManager = gameStateManager;
-        this.scene = scene;
         this.physicsWorld = new PhysicsWorld(config);
         this.initializeGameObjects(config);
+
+
         // Set up camera with increased far plane and narrower FOV for first person view
         this.camera = new THREE.PerspectiveCamera(
             60, // Reduced FOV for more realistic first person view
@@ -45,6 +55,21 @@ export class PlayState implements IGameState {
         this.flyCamera = new FlyCamera(this.camera);
         this.radar = new Radar();
         this.radar.hide()
+
+        this.createOrientationGuide(this.scene);
+
+        // Add lighting
+        const ambientLight = new THREE.AmbientLight(0x404040, 2.0); // Doubled from 1.0
+        this.scene.add(ambientLight);
+
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1.5); // Increased from 1.0
+        directionalLight.position.set(10, 20, 10);
+        this.scene.add(directionalLight);
+
+        // Add a distant point light to simulate moonlight
+        const moonLight = new THREE.PointLight(0x7777ff, 1.0, 1000); // Doubled from 0.5
+        moonLight.position.set(-150, 300, -150);
+        this.scene.add(moonLight);
 
         // Add camera mode indicator to the UI
         const cameraMode = document.createElement('div');
@@ -89,7 +114,7 @@ export class PlayState implements IGameState {
 
     private initializeGameObjects(config: GameConfig): void {
         // Create player tank
-        this.player = new PlayerTank(this.physicsWorld);
+        this.player = new PlayerTank(this);
         this.scene.add(this.player.mesh);
         this.physicsWorld.addBody(this.player);
 
@@ -102,7 +127,7 @@ export class PlayState implements IGameState {
                 z = (Math.random() * (halfWorldSize * 2)) - halfWorldSize;
             } while (Math.sqrt(x * x + z * z) < config.minEnemyDistance);
 
-            const enemy = new EnemyTank(this.physicsWorld, new THREE.Vector3(x, 0.4, z));
+            const enemy = new EnemyTank(this, new THREE.Vector3(x, 0.4, z));
             this.enemies.push(enemy);
             this.scene.add(enemy.mesh);
             this.physicsWorld.addBody(enemy);
@@ -238,7 +263,7 @@ export class PlayState implements IGameState {
         this.updateProjectiles();
 
         if (this.flyCamera.enabled) {
-            this.flyCamera.update(input, deltaTime);
+            this.flyCamera.update(this.input, deltaTime);
         } else {
             this.updateCamera()
         }
@@ -589,5 +614,60 @@ export class PlayState implements IGameState {
         window.addEventListener('mouseup', handleMouseUp);
 
         return input;
+    }
+
+    // Creates a small orientation guide that stays in the corner of the screen
+    createOrientationGuide(scene: THREE.Scene): void {
+        // Create a separate scene for the orientation guide
+        const guideScene = new THREE.Scene();
+
+        // Add axes to the guide
+        const axesHelper = new THREE.AxesHelper(10);
+        guideScene.add(axesHelper);
+
+        // Add labels
+        const createGuideLabel = (text: string, position: THREE.Vector3, color: string) => {
+            const canvas = document.createElement('canvas');
+            canvas.width = 64;
+            canvas.height = 32;
+
+            const context = canvas.getContext('2d');
+            if (context) {
+                context.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                context.fillRect(0, 0, canvas.width, canvas.height);
+
+                context.font = 'bold 20px Arial';
+                context.fillStyle = color;
+                context.textAlign = 'center';
+                context.textBaseline = 'middle';
+                context.fillText(text, canvas.width / 2, canvas.height / 2);
+            }
+
+            const texture = new THREE.CanvasTexture(canvas);
+            const material = new THREE.SpriteMaterial({ map: texture });
+            const sprite = new THREE.Sprite(material);
+
+            sprite.position.copy(position);
+            sprite.scale.set(2, 1, 1);
+
+            guideScene.add(sprite);
+            return sprite;
+        };
+
+        // Add axis labels for the guide
+        createGuideLabel('X', new THREE.Vector3(12, 0, 0), '#ff0000');
+        createGuideLabel('Y', new THREE.Vector3(0, 12, 0), '#00ff00');
+        createGuideLabel('Z', new THREE.Vector3(0, 0, 12), '#0000ff');
+
+        // Create camera for the guide
+        const guideCamera = new THREE.PerspectiveCamera(50, 1, 1, 1000);
+        guideCamera.position.set(15, 15, 15);
+        guideCamera.lookAt(0, 0, 0);
+
+        // Add the guide elements to the main scene
+        scene.userData.orientationGuide = {
+            scene: guideScene,
+            camera: guideCamera
+        };
     }
 }

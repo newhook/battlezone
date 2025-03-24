@@ -2,16 +2,15 @@ import * as THREE from 'three';
 import { IGameState} from './gameStates';
 import { MarqueeState} from './marqueeState';
 import { PlayState } from './playState';
-import { GameConfig } from './config';
 
 export class GameStateManager {
     private currentState: IGameState;
     private marqueeState: MarqueeState;
     private playState: PlayState;
 
-    constructor(scene: THREE.Scene, config: GameConfig) {
-        this.marqueeState = new MarqueeState(this, scene);
-        this.playState = new PlayState(this, scene, config);
+    constructor() {
+        this.marqueeState = new MarqueeState(this);
+        this.playState = new PlayState(this);
         this.currentState = this.marqueeState;
         this.currentState.onEnter();
     }

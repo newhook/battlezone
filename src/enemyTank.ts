@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Tank } from './tank';
-import { PhysicsWorld } from './physics';
+import { PlayState } from './playState';
 
 export class EnemyTank extends Tank {
   targetPosition: THREE.Vector3 | null = null;
@@ -12,8 +12,8 @@ export class EnemyTank extends Tank {
   minPatrolDistance: number = 20; // Minimum distance to move for patrol
   arrivalThreshold: number = 5; // How close we need to get to consider reaching patrol point
 
-  constructor(physicsWorld : PhysicsWorld, position: THREE.Vector3) {
-    super(physicsWorld, position, 0xff0000); // Call base class constructor with red color
+  constructor(playState : PlayState, position: THREE.Vector3) {
+    super(playState, position, 0xff0000); // Call base class constructor with red color
 
     // Enemy-specific properties
     this.speed = 100;  // Slower than player
@@ -102,12 +102,10 @@ export class EnemyTank extends Tank {
   update(): void {
     super.update();
     
-    if (!window.gameState?.player) return;
-    
     const currentTime = Date.now();
     const timeSinceLastUpdate = currentTime - this.lastAIUpdate;
     
-    const playerPosition = window.gameState.player.mesh.position;
+    const playerPosition = this.state.player.mesh.position;
     const tankPosition = this.mesh.position;
     
     // Calculate distance to player
@@ -132,9 +130,7 @@ export class EnemyTank extends Tank {
   }
 
   checkAndFireAtPlayer(): void {
-    if (!window.gameState?.player) return;
-    
-    const playerPosition = window.gameState.player.mesh.position;
+    const playerPosition = this.state.player.mesh.position;
     const tankPosition = this.mesh.position;
     
     const distanceToPlayer = playerPosition.distanceTo(tankPosition);

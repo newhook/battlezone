@@ -1,6 +1,4 @@
 import * as THREE from 'three';
-import { initScene } from './scene';
-import { GameConfig, defaultConfig } from './config';
 import { GameStateManager } from './gameStateManager';
 
 let gameStateManager: GameStateManager;
@@ -9,8 +7,16 @@ async function init() {
   console.log('Init function starting');
   const loadingElement = document.getElementById('loading');
 
-  // Initialize the scene
-  const { scene, renderer, clock } = initScene();
+  // Create renderer
+  const renderer = new THREE.WebGLRenderer({
+    antialias: true,
+    powerPreference: 'high-performance'
+  });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(window.devicePixelRatio);
+  renderer.setClearColor(0x000000, 1);
+
+  const clock = new THREE.Clock();
   document.body.appendChild(renderer.domElement);
 
   // Hide instructions initially
@@ -19,13 +25,8 @@ async function init() {
     instructions.style.display = 'none';
   }
 
-  // Setup game state with configuration
-  const config: GameConfig = {
-    ...defaultConfig,
-  };
-
   // Initialize game state manager
-  gameStateManager = new GameStateManager(scene, config);
+  gameStateManager = new GameStateManager();
   // Make gameStateManager accessible globally
   (window as any).gameStateManager = gameStateManager;
 
