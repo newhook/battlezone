@@ -1,6 +1,8 @@
 import { IGameState, MarqueeState, PlayState } from './gameStates';
 import * as THREE from 'three';
 import { GameConfig } from './config';
+import { InputState } from './types';
+import { FlyCamera } from './flyCamera';
 
 export class GameStateManager {
     private currentState: IGameState;
@@ -32,6 +34,10 @@ export class GameStateManager {
 
     getPlayState(): PlayState {
         return this.playState;
+    }
+
+    handleInput(input: InputState, flyCamera: FlyCamera): void {
+        this.currentState.handleInput(input, flyCamera);
     }
 
     update(deltaTime: number): void {

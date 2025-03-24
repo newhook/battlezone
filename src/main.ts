@@ -232,6 +232,9 @@ async function init() {
       // Get elapsed time since last frame
       const deltaTime = clock.getDelta();
       
+      // Handle input through game state manager
+      gameStateManager.handleInput(input, flyCamera);
+      
       // Update game state
       gameStateManager.update(deltaTime);
       
@@ -246,11 +249,6 @@ async function init() {
         } else {
           updateCamera(camera, playState.player);
         }
-      }
-      
-      // Handle input updates if in play state
-      if (isGameStarted && !flyCamera.enabled) {
-        handleGameInput(input, playState);
       }
       
       // Check if wireframe toggle has been pressed

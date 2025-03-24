@@ -1,16 +1,18 @@
 import * as THREE from 'three';
-import { Vehicle, GameObject } from './types';
+import { Vehicle, GameObject, InputState } from './types';
 import { PhysicsWorld } from './physics';
 import { PlayerTank } from './playerTank';
 import { EnemyTank } from './enemyTank';
 import { createTerrain, createGround, createBoundaryWalls } from './gameObjects';
 import { GameConfig } from './config';
+import { FlyCamera } from './flyCamera';
 
 export interface IGameState {
     update(deltaTime: number): void;
     onEnter(): void;
     onExit(): void;
     getCamera(): THREE.PerspectiveCamera;
+    handleInput(input: InputState, flyCamera: FlyCamera): void;
 }
 
 interface MarqueeCamera {
@@ -116,6 +118,11 @@ export class MarqueeState implements IGameState {
     getCamera(): THREE.PerspectiveCamera {
         return this.camera;
     }
+
+    handleInput(_input: InputState, _flyCamera: FlyCamera): void {
+        // In marquee mode, we only care about the space key to start the game
+        // This is handled in main.ts, so we don't need any input handling here
+    }
 }
 
 export class PlayState implements IGameState {
@@ -188,6 +195,33 @@ export class PlayState implements IGameState {
         this.scene.add(ground.mesh);
 
         this.terrain = [...terrain, ...walls, ground];
+    }
+
+    handleInput(input: InputState, flyCamera: FlyCamera): void {
+        // Only process tank movement controls if not in fly mode
+        if (!input.toggleFlyCamera) {
+            if (input.forward) {
+                this.player.move(1);
+            }
+            if (input.backward) {
+                this.player.move(-1);
+            }
+            if (input.left) {
+                this.player.turn(1);
+            }
+            if (input.right) {
+                this.player.turn(-1);
+            }
+            if (input.turretLeft) {
+                this.player.rotateTurret(1);
+            }
+            if (input.turretRight) {
+                this.player.rotateTurret(-1);
+            }
+            if (input.fire) {
+                this.player.fire();
+            }
+        }
     }
 
     update(deltaTime: number): void {
