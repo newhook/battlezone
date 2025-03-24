@@ -55,6 +55,53 @@
             background-color: rgba(0, 0, 0, 0.3);
             padding: 5px;
         }
+        #radar {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            width: 200px;
+            height: 200px;
+            background-color: rgba(0, 0, 0, 0.5);
+            border: 2px solid #00ff00;
+            border-radius: 50%;
+            overflow: hidden;
+        }
+        .radar-sweep {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 50%;
+            height: 2px;
+            background-color: #00ff00;
+            transform-origin: left center;
+            animation: radar-sweep 4s infinite linear;
+        }
+        .radar-blip {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background-color: #ff0000;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+        }
+        .player-indicator {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 6px;
+            height: 6px;
+            background-color: #00ff00;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+        }
+        @keyframes radar-sweep {
+            from {
+                transform: rotate(0deg);
+            }
+            to {
+                transform: rotate(360deg);
+            }
+        }
     </style>
     
 </head>
@@ -62,6 +109,10 @@
     <div id="loading">Loading Battlezone...</div>
     <div id="score">SCORE: 0</div>
     <div id="fps">FPS: 0</div>
+    <div id="radar">
+        <div class="player-indicator"></div>
+        <div class="radar-sweep"></div>
+    </div>
     <div id="instructions">
         <h3>CONTROLS:</h3>
         <p>W/↑: Move Forward</p>

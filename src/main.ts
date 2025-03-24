@@ -72,6 +72,56 @@ async function init() {
     // Handle wireframe toggle
     let prevWireframeState = input.wireframeToggle;
     
+    // Get radar element early
+    const radarElement = document.getElementById('radar');
+    
+    // Define updateRadar before animate
+    function updateRadar() {
+      if (!radarElement || !gameState) return;
+
+      // Remove old blips
+      const oldBlips = radarElement.getElementsByClassName('radar-blip');
+      while (oldBlips.length > 0) {
+        oldBlips[0].remove();
+      }
+
+      // Get player position and rotation
+      const playerPos = gameState.player.mesh.position;
+      const playerRotation = gameState.player.mesh.rotation.y;
+
+      // Add blips for each enemy
+      gameState.enemies.forEach(enemy => {
+        // Calculate relative position
+        const relativeX = enemy.mesh.position.x - playerPos.x;
+        const relativeZ = enemy.mesh.position.z - playerPos.z;
+
+        // Convert to radar coordinates (rotate based on player orientation)
+        const distance = Math.sqrt(relativeX * relativeX + relativeZ * relativeZ);
+        const angle = Math.atan2(relativeZ, relativeX) - playerRotation;
+        
+        // Scale distance to radar size (100px is radius of radar)
+        const radarRadius = 100;
+        const maxDistance = 200; // Maximum detection range
+        const scaledDistance = Math.min(distance, maxDistance) * (radarRadius / maxDistance);
+        
+        // Calculate radar position
+        const radarX = Math.cos(angle) * scaledDistance + radarRadius;
+        const radarY = Math.sin(angle) * scaledDistance + radarRadius;
+
+        // Create blip element
+        const blip = document.createElement('div');
+        blip.className = 'radar-blip';
+        blip.style.left = `${radarX}px`;
+        blip.style.top = `${radarY}px`;
+        
+        // Add distance-based opacity
+        const opacity = 1 - (distance / maxDistance);
+        blip.style.opacity = Math.max(0.3, opacity).toString();
+        
+        radarElement.appendChild(blip);
+      });
+    }
+
     function toggleWireframeMode(scene: THREE.Scene, isWireframe: boolean) {
       // Create a notification about wireframe mode
       const wireframeNotification = document.createElement('div');
@@ -131,6 +181,9 @@ async function init() {
       
       // Get elapsed time since last frame
       const deltaTime = clock.getDelta();
+      
+      // Update radar
+      updateRadar();
       
       // Check if the fly camera toggle has changed
       if (input.toggleFlyCamera !== prevToggleState) {
@@ -257,6 +310,7 @@ async function init() {
       const position = flyCamera.enabled ? camera.position : gameState.player.mesh.position;
       coordDisplay.innerHTML = `Position:<br>X: ${position.x.toFixed(2)}<br>Y: ${position.y.toFixed(2)}<br>Z: ${position.z.toFixed(2)}`;
     }, 100); // Update 10 times per second
+
   } catch (error) {
     console.error('Error initializing game:', error);
     const loadingElement = document.getElementById('loading');
