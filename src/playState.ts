@@ -125,23 +125,9 @@ export class PlayState implements IGameState {
         this.scene.add(this.player.mesh);
         this.physicsWorld.addBody(this.player);
 
-        // Create enemy tanks for level 1 - use baseEnemyCount instead of enemyCount
+        // Create terrain before spawning enemies so we can check for obstacle collisions
         const halfWorldSize = config.worldSize / 2 - 20;
         
-        // Create base number of enemies for first level
-        for (let i = 0; i < config.baseEnemyCount; i++) {
-            let x = 0, z = 0;
-            do {
-                x = (Math.random() * (halfWorldSize * 2)) - halfWorldSize;
-                z = (Math.random() * (halfWorldSize * 2)) - halfWorldSize;
-            } while (Math.sqrt(x * x + z * z) < config.minEnemyDistance);
-
-            const enemy = new EnemyTank(this, new THREE.Vector3(x, 0.4, z));
-            this.enemies.push(enemy);
-            this.scene.add(enemy.mesh);
-            this.physicsWorld.addBody(enemy);
-        }
-
         // Create terrain
         const terrainPositions: THREE.Vector3[] = [];
         for (let i = 0; i < config.obstacleCount; i++) {
@@ -173,6 +159,33 @@ export class PlayState implements IGameState {
         this.scene.add(ground.mesh);
 
         this.terrain = [...terrain, ...walls, ground];
+        
+        // Create base number of enemies for first level after terrain is set up
+        // This ensures we can check for obstacle collisions
+        for (let i = 0; i < config.baseEnemyCount; i++) {
+            let position: THREE.Vector3;
+            let attempts = 0;
+            const maxAttempts = 100; // Prevent infinite loops
+            
+            // Try to find a valid spawn position
+            do {
+                let x = (Math.random() * (halfWorldSize * 2)) - halfWorldSize;
+                let z = (Math.random() * (halfWorldSize * 2)) - halfWorldSize;
+                position = new THREE.Vector3(x, 0.4, z);
+                attempts++;
+            } while (!this.isValidSpawnPosition(position) && attempts < maxAttempts);
+            
+            // If we couldn't find a valid position after max attempts, skip this enemy
+            if (attempts >= maxAttempts) {
+                console.warn(`Could not find valid spawn position for enemy ${i} after ${maxAttempts} attempts`);
+                continue;
+            }
+
+            const enemy = new EnemyTank(this, position);
+            this.enemies.push(enemy);
+            this.scene.add(enemy.mesh);
+            this.physicsWorld.addBody(enemy);
+        }
     }
 
     handleInput(input: InputState): void {
@@ -724,7 +737,7 @@ export class PlayState implements IGameState {
         
         if (fpsElement) fpsElement.style.opacity = '0';
         if (scoreElement) scoreElement.style.opacity = '0';
-        if (instructionsElement) instructionsElement.style.opacity = '0';
+        if (instructionsElement) scoreElement.style.opacity = '0';
         if (coordDisplay) coordDisplay.style.opacity = '0';
         if (healthDisplay) {
             healthDisplay.style.opacity = '0';
@@ -1070,20 +1083,35 @@ export class PlayState implements IGameState {
         this.enemies = [];
         
         // Get world bounds from config
-        const config = defaultConfig;
-        const halfWorldSize = config.worldSize / 2 - 20;
+        const halfWorldSize = this.config.worldSize / 2 - 20;
         
         // Create new scaled enemies
         for (let i = 0; i < scaling.count; i++) {
-          // Random position far from player
-          let x = 0, z = 0;
+          // Try to find a valid spawn position
+          let position: THREE.Vector3;
+          let attempts = 0;
+          const maxAttempts = 100; // Prevent infinite loops
+          
           do {
-            x = (Math.random() * (halfWorldSize * 2)) - halfWorldSize;
-            z = (Math.random() * (halfWorldSize * 2)) - halfWorldSize;
-          } while (Math.sqrt(x*x + z*z) < config.minEnemyDistance);
+            let x = (Math.random() * (halfWorldSize * 2)) - halfWorldSize;
+            let z = (Math.random() * (halfWorldSize * 2)) - halfWorldSize;
+            position = new THREE.Vector3(x, 0.4, z);
+            attempts++;
+            
+            // Break the loop if we've tried too many times to avoid freezing the game
+            if (attempts >= maxAttempts) {
+              console.warn(`Could not find valid spawn position for enemy ${i} after ${maxAttempts} attempts`);
+              break;
+            }
+          } while (!this.isValidSpawnPosition(position));
+          
+          // Skip this enemy if we couldn't find a valid position
+          if (attempts >= maxAttempts) {
+            continue;
+          }
           
           // Create enemy tank at the position
-          const enemy = new EnemyTank(this, new THREE.Vector3(x, 0.4, z));
+          const enemy = new EnemyTank(this, position);
           
           // Apply level scaling to enemy properties
           enemy.speed *= scaling.speedMultiplier;
@@ -1131,5 +1159,37 @@ export class PlayState implements IGameState {
             }
           }, 1000);
         }, 3000);
+      }
+
+      // Helper method to check if a position is valid for spawning an enemy
+      private isValidSpawnPosition(position: THREE.Vector3): boolean {
+        // Check distance from player (minimum 100 units/meters)
+        const distanceToPlayer = position.distanceTo(this.player.mesh.position);
+        if (distanceToPlayer < 100) {
+          return false;
+        }
+        
+        // Check collision with obstacles
+        for (const obstacle of this.terrain) {
+          // Skip ground and non-collidable objects
+          if (!obstacle.body || obstacle === this.terrain[this.terrain.length - 1]) {
+            continue;
+          }
+          
+          const obstaclePos = obstacle.body.translation();
+          const obstacleSize = 5; // Approximate size of obstacles
+          
+          // Simple bounding box collision check
+          const distance = Math.sqrt(
+            Math.pow(position.x - obstaclePos.x, 2) +
+            Math.pow(position.z - obstaclePos.z, 2)
+          );
+          
+          if (distance < obstacleSize + 3) { // Adding 3 units buffer
+            return false; // Too close to an obstacle
+          }
+        }
+        
+        return true;
       }
 }
