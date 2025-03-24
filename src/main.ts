@@ -1,13 +1,16 @@
 import * as THREE from 'three';
 import { initScene, updateCamera } from './scene';
-import { setupGame, updateGame } from './game';
-import { setupInputHandlers } from './input';
 import { FlyCamera } from './flyCamera';
 import { GameConfig, defaultConfig } from './config';
 import { Radar } from './radar';
+import { GameStateManager } from './gameStateManager';
+import { InputState } from './types';
+import { PlayState } from './gameStates';
+import { setupInputHandlers } from './input';
 
 // Function to initialize the app
 let isGameStarted = false;
+let gameStateManager: GameStateManager;
 
 // Add title screen overlay
 function createTitleScreen() {
@@ -68,7 +71,6 @@ function startGame(titleScreen: HTMLElement) {
   isGameStarted = true;
   titleScreen.style.opacity = '0';
   setTimeout(() => titleScreen.remove(), 1000);
-  setMarqueeMode(false);
   
   // Show the instructions element
   const instructions = document.getElementById('instructions');
@@ -82,11 +84,6 @@ function startGame(titleScreen: HTMLElement) {
   const fps = document.getElementById('fps');
   if (score) score.style.opacity = '1';
   if (fps) fps.style.opacity = '1';
-
-  // Update game state marquee mode
-  if (window.gameState) {
-    window.gameState.isMarqueeMode = false;
-  }
 }
 
 async function init() {
@@ -113,9 +110,10 @@ async function init() {
     // Setup game state with configuration
     const config: GameConfig = {
       ...defaultConfig,
-      // You can override default config values here if needed
     };
-    const { gameState, physicsWorld } = setupGame(scene, config);
+
+    // Initialize game state manager
+    gameStateManager = new GameStateManager(scene, camera, config);
     
     // Initialize fly camera
     const flyCamera = new FlyCamera(camera);
@@ -130,9 +128,6 @@ async function init() {
         instructions.style.opacity = '0';
       }
     }, 5000);
-    
-    // Previous toggle state to detect changes
-    let prevToggleState = input.toggleFlyCamera;
     
     // Hide the loading element
     if (loadingElement) {
@@ -221,6 +216,7 @@ async function init() {
     document.addEventListener('keydown', (event) => {
       if (event.code === 'Space' && !isGameStarted) {
         startGame(titleScreen);
+        gameStateManager.switchToPlay();
       }
     });
     
@@ -233,32 +229,26 @@ async function init() {
       
       // Get elapsed time since last frame
       const deltaTime = clock.getDelta();
-      const currentTime = clock.getElapsedTime() * 1000; // Convert to milliseconds
       
-      // Update radar with current game state
-      radar.update(gameState.player, gameState.enemies);
+      // Update game state
+      gameStateManager.update(deltaTime);
       
-      // Check if the fly camera toggle has changed
-      if (input.toggleFlyCamera !== prevToggleState) {
-        // If we're going from fly mode to tank mode, reset the camera position
+      // Get current play state for radar updates
+      const playState = gameStateManager.getPlayState();
+      radar.update(playState.player, playState.enemies);
+
+      // Handle camera updates based on game state
+      if (isGameStarted) {
         if (flyCamera.enabled) {
-          flyCamera.resetToTankCamera();
+          flyCamera.update(input, deltaTime);
+        } else {
+          updateCamera(camera, playState.player);
         }
-        
-        // Toggle the camera mode
-        flyCamera.toggle();
-        prevToggleState = input.toggleFlyCamera;
-        
-        // Update camera mode display
-        const cameraMode = document.getElementById('camera-mode');
-        if (cameraMode) {
-          cameraMode.textContent = flyCamera.enabled ? 'CAMERA: FLY MODE' : 'CAMERA: TANK MODE';
-          cameraMode.style.opacity = '1';
-          // Fade out after 2 seconds
-          setTimeout(() => {
-            cameraMode.style.opacity = '0';
-          }, 2000);
-        }
+      }
+      
+      // Handle input updates if in play state
+      if (isGameStarted && !flyCamera.enabled) {
+        handleGameInput(input, playState);
       }
       
       // Check if wireframe toggle has been pressed
@@ -267,22 +257,10 @@ async function init() {
         prevWireframeState = input.wireframeToggle;
       }
       
-      // Update game logic
-      updateGame(gameState, input, physicsWorld, deltaTime);
-      
-      // Update camera based on mode
-      if (!isGameStarted) {
-        updateMarqueeCamera(camera, currentTime);
-      } else if (flyCamera.enabled) {
-        flyCamera.update(input, deltaTime);
-      } else {
-        updateCamera(camera, gameState.player);
-      }
-      
       // Render the scene
       renderer.render(scene, camera);
       
-      // Render orientation guide if it exists
+      // Render orientation guide if it exists and game has started
       if (scene.userData.orientationGuide && isGameStarted) {
         const { scene: guideScene, camera: guideCamera } = scene.userData.orientationGuide;
         
@@ -319,6 +297,31 @@ async function init() {
         renderer.setViewport(0, 0, window.innerWidth, window.innerHeight);
         renderer.setScissor(0, 0, window.innerWidth, window.innerHeight);
         renderer.setScissorTest(false);
+      }
+    }
+
+    // New function to handle game input
+    function handleGameInput(input: InputState, playState: PlayState) {
+      if (input.forward) {
+        playState.player.move(1);
+      }
+      if (input.backward) {
+        playState.player.move(-1);
+      }
+      if (input.left) {
+        playState.player.turn(1);
+      }
+      if (input.right) {
+        playState.player.turn(-1);
+      }
+      if (input.turretLeft) {
+        playState.player.rotateTurret(1);
+      }
+      if (input.turretRight) {
+        playState.player.rotateTurret(-1);
+      }
+      if (input.fire) {
+        playState.player.fire();
       }
     }
     
@@ -362,7 +365,7 @@ async function init() {
     
     // Update the coordinate display in the animation loop
     setInterval(() => {
-      const position = flyCamera.enabled ? camera.position : gameState.player.mesh.position;
+      const position = flyCamera.enabled ? camera.position : gameStateManager.getPlayState().player.mesh.position;
       coordDisplay.innerHTML = `Position:<br>X: ${position.x.toFixed(2)}<br>Y: ${position.y.toFixed(2)}<br>Z: ${position.z.toFixed(2)}`;
     }, 100); // Update 10 times per second
 
