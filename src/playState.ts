@@ -101,7 +101,7 @@ export class PlayState implements IGameState {
 
         // Update the coordinate display in the animation loop
         setInterval(() => {
-            const position = this.flyCamera.enabled ? this.camera.position : gameStateManager.getPlayState().player.mesh.position;
+            const position = this.flyCamera.enabled ? this.camera.position : this.player.mesh.position;
             coordDisplay.innerHTML = `Position:<br>X: ${position.x.toFixed(2)}<br>Y: ${position.y.toFixed(2)}<br>Z: ${position.z.toFixed(2)}`;
         }, 100); // Update 10 times per second
 
@@ -502,13 +502,25 @@ export class PlayState implements IGameState {
     }
 
     onExit(): void {
-        this.radar.hide()
+        // Hide UI elements
+        const scoreElement = document.getElementById('score');
+        const fpsElement = document.getElementById('fps');
+        const instructionsElement = document.getElementById('instructions');
+        const coordDisplay = document.getElementById('coordinates');
+        
+        if (scoreElement) scoreElement.style.opacity = '0';
+        if (fpsElement) fpsElement.style.opacity = '0';
+        if (instructionsElement) {
+            instructionsElement.style.opacity = '0';
+        }
+        if (coordDisplay) coordDisplay.style.opacity = '0';
+        
+        // Handle any cleanup of game visuals
+        // Remove any on-screen feedback elements
+        const feedbackElements = document.querySelectorAll('.game-feedback');
+        feedbackElements.forEach(element => element.remove());
     }
-
-    getCamera(): THREE.PerspectiveCamera {
-        return this.camera;
-    }
-
+    
     setupInputHandlers(): InputState {
         const input: InputState = {
             forward: false,

@@ -1,4 +1,3 @@
-
 import * as THREE from 'three';
 import { InputState } from './types';
 import { IGameState } from './gameStates';
@@ -18,6 +17,9 @@ export class MarqueeState implements IGameState {
     private currentMarqueeIndex: number = 0;
     private marqueeStartTime: number = 0;
     private titleScreen: HTMLDivElement;
+    private keydownHandler: (event: KeyboardEvent) => void;
+    private cameraUpdateInterval?: number;
+    private resizeHandler: () => void;
 
     constructor(gameStateManager: GameStateManager) {
         // Create scene
@@ -64,10 +66,19 @@ export class MarqueeState implements IGameState {
         this.camera.lookAt(0, 1.5, 10);
 
         // Handle window resize
-        window.addEventListener('resize', () => {
+        this.resizeHandler = () => {
             this.camera.aspect = window.innerWidth / window.innerHeight;
             this.camera.updateProjectionMatrix();
-        });
+        };
+        window.addEventListener('resize', this.resizeHandler);
+
+        // Create the keydown handler function that we'll need to remove later
+        this.keydownHandler = (event: KeyboardEvent) => {
+            if (event.code === 'Space') {
+                this.gameStart();
+                this.gameStateManager.switchToPlay();
+            }
+        };
     }
 
     update(deltaTime: number): void {
@@ -121,13 +132,8 @@ export class MarqueeState implements IGameState {
             instructionsElement.style.opacity = '0';
         }
 
-        // Handle space key for game start
-        document.addEventListener('keydown', (event) => {
-            if (event.code === 'Space') {
-                this.gameStart();
-                this.gameStateManager.switchToPlay();
-            }
-        });
+        // Add event listener for space key
+        document.addEventListener('keydown', this.keydownHandler);
     }
 
     gameStart(): void {
@@ -149,11 +155,35 @@ export class MarqueeState implements IGameState {
     }
 
     onExit(): void {
-        // No specific cleanup needed
-    }
-
-    getCamera(): THREE.PerspectiveCamera {
-        return this.camera;
+        // Remove event listeners to prevent memory leaks
+        document.removeEventListener('keydown', this.keydownHandler);
+        window.removeEventListener('resize', this.resizeHandler);
+        
+        // Remove the title screen if it still exists
+        if (this.titleScreen && this.titleScreen.parentNode) {
+            this.titleScreen.remove();
+        }
+        
+        // Remove style element if it exists
+        const titleStyle = document.getElementById('title-screen-styles');
+        if (titleStyle) {
+            titleStyle.remove();
+        }
+        
+        // Clean up any camera movement intervals
+        if (this.cameraUpdateInterval) {
+            clearInterval(this.cameraUpdateInterval);
+            this.cameraUpdateInterval = undefined;
+        }
+        
+        // Remove any added ambient lights or other scene elements
+        this.scene.children.forEach(child => {
+            if (child instanceof THREE.AmbientLight || 
+                child instanceof THREE.DirectionalLight ||
+                child instanceof THREE.PointLight) {
+                this.scene.remove(child);
+            }
+        });
     }
 
     render(renderer: THREE.WebGLRenderer): void {
@@ -216,46 +246,5 @@ export class MarqueeState implements IGameState {
         document.head.appendChild(style);
 
         this.titleScreen = titleScreen;
-    }
-
-    updateMarqueeCamera(camera: THREE.PerspectiveCamera, currentTime: number): void {
-        if (!isMarqueeMode) return;
-
-        if (marqueeStartTime === 0) {
-            marqueeStartTime = currentTime;
-        }
-
-        const current = marqueeCameras[currentMarqueeIndex];
-        const next = marqueeCameras[(currentMarqueeIndex + 1) % marqueeCameras.length];
-        const elapsedTime = currentTime - marqueeStartTime;
-
-        if (elapsedTime >= current.duration) {
-            // Move to next camera position
-            currentMarqueeIndex = (currentMarqueeIndex + 1) % marqueeCameras.length;
-            marqueeStartTime = currentTime;
-            return;
-        }
-
-        // Interpolate between current and next camera position
-        const progress = elapsedTime / current.duration;
-        const position = new THREE.Vector3().lerpVectors(
-            current.position,
-            next.position,
-            progress
-        );
-        const lookAt = new THREE.Vector3().lerpVectors(
-            current.lookAt,
-            next.lookAt,
-            progress
-        );
-
-        camera.position.copy(position);
-        camera.lookAt(lookAt);
-    }
-
-    setMarqueeMode(enabled: boolean): void {
-        isMarqueeMode = enabled;
-        currentMarqueeIndex = 0;
-        marqueeStartTime = 0;
     }
 }

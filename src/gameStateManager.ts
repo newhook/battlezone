@@ -1,38 +1,34 @@
 import * as THREE from 'three';
-import { IGameState} from './gameStates';
-import { MarqueeState} from './marqueeState';
+import { IGameState } from './gameStates';
+import { MarqueeState } from './marqueeState';
 import { PlayState } from './playState';
 
 export class GameStateManager {
     private currentState: IGameState;
-    private marqueeState: MarqueeState;
-    private playState: PlayState;
 
     constructor() {
-        this.marqueeState = new MarqueeState(this);
-        this.playState = new PlayState(this);
-        this.currentState = this.marqueeState;
+        this.currentState = new MarqueeState(this);
         this.currentState.onEnter();
     }
 
     switchToPlay(): void {
-        this.currentState.onExit();
-        this.currentState = this.playState;
+        if (this.currentState) {
+            this.currentState.onExit();
+        }
+        this.currentState = new PlayState(this);
         this.currentState.onEnter();
     }
 
     switchToMarquee(): void {
-        this.currentState.onExit();
-        this.currentState = this.marqueeState;
+        if (this.currentState) {
+            this.currentState.onExit();
+        }
+        this.currentState = new MarqueeState(this);
         this.currentState.onEnter();
     }
 
     getCurrentState(): IGameState {
         return this.currentState;
-    }
-
-    getPlayState(): PlayState {
-        return this.playState;
     }
 
     update(deltaTime: number): void {
