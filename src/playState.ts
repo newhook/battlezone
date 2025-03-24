@@ -710,10 +710,7 @@ export class PlayState implements IGameState {
         const healthDisplay = document.getElementById('health-display');
         
         if (scoreElement) scoreElement.style.opacity = '0';
-        if (fpsElement) scoreElement.style.opacity = '0';
-        if (instructionsElement) {
-            instructionsElement.style.opacity = '0';
-        }
+        if (instructionsElement) instructionsElement.style.opacity = '0';
         if (coordDisplay) coordDisplay.style.opacity = '0';
         if (healthDisplay) {
             healthDisplay.style.opacity = '0';
