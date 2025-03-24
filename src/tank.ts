@@ -16,6 +16,7 @@ export abstract class Tank implements Vehicle {
   canFire: boolean;
   lastFired: number;
   hitpoints: number = 15; // Starting hitpoints for all tanks
+  maxHitpoints: number = 15; // Maximum hitpoints, will increase with levels
   protected turretContainer: THREE.Object3D;
   protected cannonMesh: THREE.Mesh;
   protected state: PlayState;

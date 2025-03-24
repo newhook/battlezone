@@ -12,6 +12,7 @@ export class PlayerTank extends Tank {
     this.speed = 125; 
     this.turnSpeed = 1.5;
     this.hitpoints = 15; // Player starts with 15 hitpoints
+    this.maxHitpoints = 15; // Initial max hitpoints
   }
 
   // Override takeDamage to add player-specific visual feedback
