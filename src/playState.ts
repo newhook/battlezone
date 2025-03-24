@@ -709,6 +709,7 @@ export class PlayState implements IGameState {
         const coordDisplay = document.getElementById('coordinates');
         const healthDisplay = document.getElementById('health-display');
         
+        if (fpsElement) fpsElement.style.opacity = '0';
         if (scoreElement) scoreElement.style.opacity = '0';
         if (instructionsElement) instructionsElement.style.opacity = '0';
         if (coordDisplay) coordDisplay.style.opacity = '0';
