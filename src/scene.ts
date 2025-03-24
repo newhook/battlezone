@@ -33,15 +33,15 @@ export function initScene(): SceneSetup {
   renderer.setClearColor(0x000000, 1);
 
   // Add lighting
-  const ambientLight = new THREE.AmbientLight(0x404040, 1);
+  const ambientLight = new THREE.AmbientLight(0x404040, 2.0); // Doubled from 1.0
   scene.add(ambientLight);
 
-  const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+  const directionalLight = new THREE.DirectionalLight(0xffffff, 1.5); // Increased from 1.0
   directionalLight.position.set(10, 20, 10);
   scene.add(directionalLight);
   
   // Add a distant point light to simulate moonlight
-  const moonLight = new THREE.PointLight(0x7777ff, 0.5, 1000);
+  const moonLight = new THREE.PointLight(0x7777ff, 1.0, 1000); // Doubled from 0.5
   moonLight.position.set(-150, 300, -150);
   scene.add(moonLight);
   

@@ -85,10 +85,25 @@ export function setupInputHandlers(): InputState {
       // We don't reset toggleFlyCamera on keyup as it's a toggle state
     }
   };
+
+  // Mouse button handlers
+  const handleMouseDown = (event: MouseEvent) => {
+    if (event.button === 0) { // Left mouse button
+      input.fire = true;
+    }
+  };
+
+  const handleMouseUp = (event: MouseEvent) => {
+    if (event.button === 0) { // Left mouse button
+      input.fire = false;
+    }
+  };
   
   // Add event listeners
   window.addEventListener('keydown', handleKeyDown);
   window.addEventListener('keyup', handleKeyUp);
+  window.addEventListener('mousedown', handleMouseDown);
+  window.addEventListener('mouseup', handleMouseUp);
   
   return input;
 }
