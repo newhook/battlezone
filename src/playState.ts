@@ -9,6 +9,7 @@ import { IGameState } from './gameStates';
 import { Radar } from './radar';
 import { GameStateManager } from './gameStateManager';
 import { GameConfig, defaultConfig } from './config';
+import { Projectile, ProjectileSource } from './projectile';
 
 export class PlayState implements IGameState {
     private gameStateManager: GameStateManager;
@@ -366,48 +367,78 @@ export class PlayState implements IGameState {
     }
 
     private checkProjectileCollisions(projectileIndex: number, projectile: GameObject): void {
+        // Skip if this is not a proper Projectile instance
+        if (!(projectile instanceof Projectile)) return;
+        
         const projectilePos = projectile.body.translation();
-
-        for (let j = this.enemies.length - 1; j >= 0; j--) {
+    
+        // Check for enemy collisions if it's a player projectile
+        if (projectile.source === ProjectileSource.PLAYER) {
+          for (let j = this.enemies.length - 1; j >= 0; j--) {
             const enemy = this.enemies[j];
             if (!enemy.body || !enemy.mesh) continue;
-
+    
             const enemyPos = enemy.body.translation();
             const distance = Math.sqrt(
-                Math.pow(projectilePos.x - enemyPos.x, 2) +
-                Math.pow(projectilePos.y - enemyPos.y, 2) +
-                Math.pow(projectilePos.z - enemyPos.z, 2)
+              Math.pow(projectilePos.x - enemyPos.x, 2) +
+              Math.pow(projectilePos.y - enemyPos.y, 2) +
+              Math.pow(projectilePos.z - enemyPos.z, 2)
             );
-
+    
             if (distance < 2) {
-                this.handleEnemyHit(j, enemyPos);
-                this.removeProjectile(projectileIndex);
-                break;
+              this.handleEnemyHit(j, enemyPos);
+              this.removeProjectile(projectileIndex);
+              break;
             }
+          }
+        } 
+        // Check for player collision if it's an enemy projectile
+        else if (projectile.source === ProjectileSource.ENEMY) {
+          if (!this.player.body || !this.player.mesh) return;
+          
+          const playerPos = this.player.body.translation();
+          const distance = Math.sqrt(
+            Math.pow(projectilePos.x - playerPos.x, 2) +
+            Math.pow(projectilePos.y - playerPos.y, 2) +
+            Math.pow(projectilePos.z - playerPos.z, 2)
+          );
+          
+          if (distance < 2) {
+            this.handlePlayerHit();
+            this.removeProjectile(projectileIndex);
+          }
         }
-    }
+      }
 
     private handleEnemyHit(enemyIndex: number, enemyPos: { x: number, y: number, z: number }): void {
         const enemy = this.enemies[enemyIndex];
 
-        // Create explosion effect
-        if (enemy.mesh.parent) {
-            this.createExplosion(enemyPos);
-        }
+        // Apply damage and check if enemy is destroyed
+        const isAlive = enemy.takeDamage(10);
+        
+        // Create hit explosion effect
+        this.createExplosion(enemyPos);
 
-        // Remove enemy
-        if (enemy.mesh.parent) {
+        // Only remove the enemy if it's destroyed
+        if (!isAlive) {
+          // Remove the enemy from scene
+          if (enemy.mesh.parent) {
             enemy.mesh.parent.remove(enemy.mesh);
-        }
-        if (enemy.body) {
-            // Pass the entire enemy object as it implements GameObject
+          }
+          
+          // Remove from physics world
+          if (enemy.body) {
             this.physicsWorld.removeBody(enemy);
+          }
+          
+          // Remove from array
+          this.enemies.splice(enemyIndex, 1);
+          
+          // Add score points for a destroyed enemy
+          this.score += 100;
+          this.updateScoreDisplay();
         }
-
-        this.enemies.splice(enemyIndex, 1);
-        this.score += 100;
-        this.updateScoreDisplay();
-    }
+      }
 
     private removeProjectile(index: number): void {
         const projectile = this.projectiles[index];
@@ -475,6 +506,160 @@ export class PlayState implements IGameState {
         }
     }
 
+    private handlePlayerHit(): void {
+        // Flash the player tank to indicate damage and check if destroyed
+        const isAlive = this.player.takeDamage(10);
+        
+        // Create explosion effect at the player's position
+        const playerPos = this.player.body.translation();
+        this.createExplosion({x: playerPos.x, y: playerPos.y, z: playerPos.z});
+        
+        // Display health info
+        this.showHealthNotification();
+        
+        // Check if player is destroyed
+        if (!isAlive) {
+          this.triggerGameOver();
+          return;
+        }
+        
+        // Show hit notification
+        const hitNotification = document.createElement('div');
+        hitNotification.style.position = 'absolute';
+        hitNotification.style.top = '50%';
+        hitNotification.style.left = '50%';
+        hitNotification.style.transform = 'translate(-50%, -50%)';
+        hitNotification.style.color = '#ff0000';
+        hitNotification.style.fontFamily = 'monospace';
+        hitNotification.style.fontSize = '36px';
+        hitNotification.style.padding = '10px';
+        hitNotification.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+        hitNotification.style.border = '2px solid #ff0000';
+        hitNotification.style.transition = 'opacity 0.5s ease-in-out';
+        hitNotification.style.opacity = '1';
+        hitNotification.style.pointerEvents = 'none'; // Make sure it doesn't block interaction
+        hitNotification.style.zIndex = '1000';
+        hitNotification.textContent = 'HIT!';
+        hitNotification.className = 'game-feedback';
+        
+        document.body.appendChild(hitNotification);
+        
+        // Fade out after a short time
+        setTimeout(() => {
+          hitNotification.style.opacity = '0';
+          setTimeout(() => {
+            if (hitNotification.parentNode) {
+              document.body.removeChild(hitNotification);
+            }
+          }, 500);
+        }, 1000);
+        
+        // Apply a shake effect to the camera
+        this.applyCameraShake();
+      }
+
+      private showHealthNotification(): void {
+        // Create or update health display
+        let healthDisplay = document.getElementById('health-display');
+        
+        if (!healthDisplay) {
+          healthDisplay = document.createElement('div');
+          healthDisplay.id = 'health-display';
+          healthDisplay.style.position = 'absolute';
+          healthDisplay.style.top = '60px';
+          healthDisplay.style.right = '20px';
+          healthDisplay.style.color = '#00ff00';
+          healthDisplay.style.fontFamily = 'monospace';
+          healthDisplay.style.fontSize = '20px';
+          healthDisplay.style.padding = '5px';
+          healthDisplay.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+          healthDisplay.style.border = '1px solid #00ff00';
+          
+          // Create a container for the health bar
+          const healthBarContainer = document.createElement('div');
+          healthBarContainer.style.width = '150px';
+          healthBarContainer.style.height = '15px';
+          healthBarContainer.style.border = '1px solid #00ff00';
+          healthBarContainer.style.marginTop = '5px';
+          healthBarContainer.style.position = 'relative';
+          
+          // Create the health bar itself
+          const healthBar = document.createElement('div');
+          healthBar.id = 'health-bar';
+          healthBar.style.height = '100%';
+          healthBar.style.width = '100%';
+          healthBar.style.backgroundColor = '#00ff00';
+          healthBar.style.transition = 'width 0.3s, background-color 0.3s';
+          
+          healthBarContainer.appendChild(healthBar);
+          healthDisplay.appendChild(healthBarContainer);
+          document.body.appendChild(healthDisplay);
+        }
+        
+        // Set color based on health percentage
+        const healthPercentage = this.player.hitpoints / 15; // 15 is max health
+        let healthColor = '#00ff00'; // Green
+        
+        if (healthPercentage < 0.3) {
+          healthColor = '#ff0000'; // Red for critical health
+        } else if (healthPercentage < 0.6) {
+          healthColor = '#ffff00'; // Yellow for moderate health
+        }
+        
+        healthDisplay.style.color = healthColor;
+        healthDisplay.style.borderColor = healthColor;
+        
+        // Update the health bar
+        const healthBar = document.getElementById('health-bar');
+        if (healthBar) {
+          healthBar.style.width = `${Math.max(0, healthPercentage * 100)}%`;
+          healthBar.style.backgroundColor = healthColor;
+        }
+        
+        healthDisplay.firstChild.textContent = `HEALTH: ${Math.max(0, this.player.hitpoints)}`;
+      }
+
+    private applyCameraShake(): void {
+        // Skip shake if in fly camera mode
+        if (this.flyCamera.enabled) return;
+        
+        // Store original camera position
+        const originalPosition = this.camera.position.clone();
+        
+        // Shake parameters
+        const shakeIntensity = 0.2;
+        const shakeDuration = 500; // ms
+        const startTime = Date.now();
+        
+        // Shake animation function
+        const shakeCamera = () => {
+          const elapsed = Date.now() - startTime;
+          const progress = elapsed / shakeDuration;
+          
+          if (progress < 1) {
+            // Calculate shake offset with decreasing intensity over time
+            const intensity = shakeIntensity * (1 - progress);
+            const shakeOffset = new THREE.Vector3(
+              (Math.random() - 0.5) * 2 * intensity,
+              (Math.random() - 0.5) * 2 * intensity,
+              (Math.random() - 0.5) * 2 * intensity
+            );
+            
+            // Apply shake offset from original position
+            this.camera.position.copy(originalPosition).add(shakeOffset);
+            
+            // Continue shaking
+            requestAnimationFrame(shakeCamera);
+          } else {
+            // Restore original position
+            this.camera.position.copy(originalPosition);
+          }
+        };
+        
+        // Start shake animation
+        shakeCamera();
+      }
+
     onEnter(): void {
         // Show gameplay UI elements
         const scoreElement = document.getElementById('score');
@@ -489,7 +674,10 @@ export class PlayState implements IGameState {
         }
 
         this.input = this.setupInputHandlers();
-        this.radar.show()
+        this.radar.show();
+        
+        // Initialize health display
+        this.showHealthNotification();
 
         const instructions = document.getElementById('instructions');
         if (instructions) {
@@ -507,13 +695,20 @@ export class PlayState implements IGameState {
         const fpsElement = document.getElementById('fps');
         const instructionsElement = document.getElementById('instructions');
         const coordDisplay = document.getElementById('coordinates');
+        const healthDisplay = document.getElementById('health-display');
         
         if (scoreElement) scoreElement.style.opacity = '0';
-        if (fpsElement) fpsElement.style.opacity = '0';
+        if (fpsElement) scoreElement.style.opacity = '0';
         if (instructionsElement) {
             instructionsElement.style.opacity = '0';
         }
         if (coordDisplay) coordDisplay.style.opacity = '0';
+        if (healthDisplay) {
+            healthDisplay.style.opacity = '0';
+            setTimeout(() => {
+                if (healthDisplay.parentNode) healthDisplay.parentNode.removeChild(healthDisplay);
+            }, 500);
+        }
         
         // Handle any cleanup of game visuals
         // Remove any on-screen feedback elements
@@ -682,4 +877,67 @@ export class PlayState implements IGameState {
             camera: guideCamera
         };
     }
+
+    private triggerGameOver(): void {
+        // Set game over state
+        this.gameOver = true;
+        
+        // Create game over screen
+        const gameOverScreen = document.createElement('div');
+        gameOverScreen.id = 'game-over-screen';
+        gameOverScreen.style.position = 'absolute';
+        gameOverScreen.style.top = '0';
+        gameOverScreen.style.left = '0';
+        gameOverScreen.style.width = '100%';
+        gameOverScreen.style.height = '100%';
+        gameOverScreen.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+        gameOverScreen.style.color = '#ff0000';
+        gameOverScreen.style.fontFamily = 'monospace';
+        gameOverScreen.style.fontSize = '48px';
+        gameOverScreen.style.display = 'flex';
+        gameOverScreen.style.flexDirection = 'column';
+        gameOverScreen.style.justifyContent = 'center';
+        gameOverScreen.style.alignItems = 'center';
+        gameOverScreen.style.zIndex = '2000';
+        gameOverScreen.style.cursor = 'pointer';
+        gameOverScreen.innerHTML = `
+          <div>GAME OVER</div>
+          <div style="font-size: 24px; margin-top: 20px; color: #00ff00;">Final Score: ${this.score}</div>
+          <div style="font-size: 20px; margin-top: 40px; color: #ffffff;">Click anywhere to continue</div>
+        `;
+        
+        document.body.appendChild(gameOverScreen);
+        
+        // Add click event listener to return to marquee screen
+        const handleClick = () => {
+          // Remove this event listener
+          gameOverScreen.removeEventListener('click', handleClick);
+          document.removeEventListener('keydown', handleKeydown);
+          
+          // Fade out game over screen
+          gameOverScreen.style.transition = 'opacity 1s ease-out';
+          gameOverScreen.style.opacity = '0';
+          
+          // Remove the game over screen after fade out
+          setTimeout(() => {
+            if (gameOverScreen.parentNode) {
+              gameOverScreen.parentNode.removeChild(gameOverScreen);
+            }
+            
+            // Switch to marquee state
+            this.gameStateManager.switchToMarquee();
+          }, 1000);
+        };
+        
+        // Also allow pressing any key to continue
+        const handleKeydown = () => {
+          handleClick();
+        };
+        
+        // Add event listeners after a short delay to prevent accidental clicks
+        setTimeout(() => {
+          gameOverScreen.addEventListener('click', handleClick);
+          document.addEventListener('keydown', handleKeydown);
+        }, 1000);
+      }
 }

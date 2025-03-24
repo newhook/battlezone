@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d';
 import { Vehicle } from './types';
-import { Projectile } from './projectile';
+import { Projectile, ProjectileSource } from './projectile';
 import { PlayState } from './playState';
+import { PlayerTank } from './playerTank';
 
 /**
  * Base Tank class for shared functionality between player and enemy tanks
@@ -14,6 +15,7 @@ export abstract class Tank implements Vehicle {
   turnSpeed: number;
   canFire: boolean;
   lastFired: number;
+  hitpoints: number = 15; // Starting hitpoints for all tanks
   protected turretContainer: THREE.Object3D;
   protected cannonMesh: THREE.Mesh;
   protected state: PlayState;
@@ -185,13 +187,18 @@ export abstract class Tank implements Vehicle {
     const tankVel = this.body.linvel();
     const initialVelocity = new THREE.Vector3(tankVel.x, tankVel.y, tankVel.z);
 
-    // Create projectile physics body
+    // Determine projectile source based on tank type
+    const source = this instanceof PlayerTank 
+      ? ProjectileSource.PLAYER 
+      : ProjectileSource.ENEMY;
+
     // Create new projectile using the Projectile class
     const projectile = new Projectile(
       this.state,
       cannonTip,
       forward.clone(),
       initialVelocity,
+      source
     );
 
     // Add to physics world
@@ -199,7 +206,6 @@ export abstract class Tank implements Vehicle {
 
     // Add projectile to PlayState's projectiles array
     this.state.projectiles.push(projectile);
-
 
     // Set cooldown
     this.canFire = false;
@@ -223,7 +229,7 @@ export abstract class Tank implements Vehicle {
   }
 
   // Method to check status and take damage
-  takeDamage(_amount: number = 1): boolean {
+  takeDamage(amount: number = 10): boolean {
     // Flash the tank briefly
     const originalColor = (this.mesh.material as THREE.MeshStandardMaterial).color.clone();
     (this.mesh.material as THREE.MeshStandardMaterial).color.set(0xffffff);
@@ -232,7 +238,11 @@ export abstract class Tank implements Vehicle {
       (this.mesh.material as THREE.MeshStandardMaterial).color.copy(originalColor);
     }, 100);
 
-    return true; // Return true if tank is still alive
+    // Reduce hitpoints
+    this.hitpoints -= amount;
+    
+    // Return false if tank is destroyed
+    return this.hitpoints > 0;
   }
 }
 
