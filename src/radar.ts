@@ -165,30 +165,33 @@ export class Radar {
             // Get the blip element (either existing or newly created)
             const blip = this.trackedEnemies.get(enemy)!;
             
+            // Get player's rotation quaternion
+            const playerQuat = player.mesh.quaternion;
+            
             // Create a vector representing the direction to the enemy in XZ plane
-            const directionToEnemy = new THREE.Vector2(relativeX, relativeZ);
+            const worldDirectionToEnemy = new THREE.Vector3(relativeX, 0, relativeZ);
             
-            // Create a vector representing the player's forward direction
-            // In THREE.js, the default forward is negative Z axis
-            // We use the Y-rotation (around vertical axis) to create this vector
-            const forwardDir = new THREE.Vector2(0, -1).rotateAround(new THREE.Vector2(0, 0), player.mesh.rotation.y);
+            // Convert world direction to player-local direction by applying inverse of player rotation
+            const inversePlayerQuat = playerQuat.clone().invert();
+            const localDirectionToEnemy = worldDirectionToEnemy.clone().applyQuaternion(inversePlayerQuat);
             
-            // Calculate angle between forward direction and direction to enemy
-            let angle = forwardDir.angle() - directionToEnemy.angle();
+            // Extract the X and Z components for 2D radar display
+            const localX = localDirectionToEnemy.x;
+            const localZ = localDirectionToEnemy.z;
             
-            // Normalize angle
-            if (angle > Math.PI) angle -= Math.PI * 2;
-            if (angle < -Math.PI) angle += Math.PI * 2;
-            
-            // Scale distance to radar size
+            // Scale distance for radar (using the original world distance)
             const scaledDistance = distance * (this.radarRadius / this.maxDistance);
             
+            // Calculate 2D distance and angle in local space
+            const localDistance2D = Math.sqrt(localX * localX + localZ * localZ);
+            const normalizedX = localX / localDistance2D;
+            const normalizedZ = localZ / localDistance2D;
+            
             // Calculate radar position
-            // Center of radar is (radarRadius, radarRadius)
-            // Forward (negative angle) should be top of radar
-            // Positive X on radar is to the right (90 degrees clockwise from top)
-            const radarX = this.radarRadius + Math.sin(angle) * scaledDistance;
-            const radarY = this.radarRadius - Math.cos(angle) * scaledDistance;
+            // Forward is top of radar (negative Z in local tank space)
+            // Right is right side of radar (positive X in local tank space)
+            const radarX = this.radarRadius + normalizedX * scaledDistance;
+            const radarY = this.radarRadius - normalizedZ * scaledDistance;
             
             blip.style.left = `${radarX}px`;
             blip.style.top = `${radarY}px`;
