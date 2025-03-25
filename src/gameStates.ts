@@ -6,3 +6,7 @@ export interface IGameState {
     onExit(): void;
     render(renderer: THREE.WebGLRenderer): void;
 }
+
+export interface PreMarqueeState extends IGameState {
+    // Additional methods or properties specific to the pre-marquee state can be added here
+}

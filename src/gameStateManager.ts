@@ -2,12 +2,25 @@ import * as THREE from 'three';
 import { IGameState } from './gameStates';
 import { MarqueeState } from './marqueeState';
 import { PlayState } from './playState';
+import { SoundManager } from './soundManager';
+import { PreMarqueeState } from './gameStates';
+import { PreMarquee } from './preMarquee';
 
 export class GameStateManager {
     private currentState: IGameState;
+    public soundManager: SoundManager;
 
     constructor() {
-        this.currentState = new MarqueeState(this);
+        this.soundManager = new SoundManager();
+        this.currentState = new PreMarquee(this); // Set PreMarquee as the initial state
+        this.currentState.onEnter();
+    }
+
+    switchToPreMarquee(): void {
+        if (this.currentState) {
+            this.currentState.onExit();
+        }
+        this.currentState = new PreMarquee(this);
         this.currentState.onEnter();
     }
 

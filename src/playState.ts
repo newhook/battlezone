@@ -193,6 +193,9 @@ export class PlayState implements IGameState {
         if (!input.toggleFlyCamera) {
             if (input.forward) {
                 this.player.move(1);
+                this.gameStateManager.soundManager.startMovementNoise();
+            } else {
+                this.gameStateManager.soundManager.stopMovementNoise();
             }
             if (input.backward) {
                 this.player.move(-1);
@@ -211,6 +214,7 @@ export class PlayState implements IGameState {
             }
             if (input.fire) {
                 this.player.fire();
+                this.gameStateManager.soundManager.playPlayerShoot();
             }
         }
 
@@ -290,6 +294,11 @@ export class PlayState implements IGameState {
             this.updateCamera();
         }
         this.radar.update(this.player, this.enemies);
+
+        // Play radar ping sound when a new blip appears
+        if (this.enemies.length > 0) {
+            this.gameStateManager.soundManager.playRadarPing();
+        }
 
         // Check for level completion
         if (!this.levelComplete && this.enemies.length === 0) {
@@ -445,6 +454,8 @@ export class PlayState implements IGameState {
         // Create hit explosion effect
         this.createExplosion(enemyPos);
 
+        this.gameStateManager.soundManager.playHit();
+
         // Only remove the enemy if it's destroyed
         if (!isAlive) {
           // Remove the enemy from scene
@@ -542,6 +553,8 @@ export class PlayState implements IGameState {
         
         // Display health info
         this.showHealthNotification();
+        
+        this.gameStateManager.soundManager.playHit();
         
         // Check if player is destroyed
         if (!isAlive) {

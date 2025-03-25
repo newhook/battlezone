@@ -134,6 +134,13 @@ export class MarqueeState implements IGameState {
 
         // Add event listener for space key
         document.addEventListener('keydown', this.keydownHandler);
+
+        // Start AudioContext and load marquee music on user interaction
+        document.addEventListener('click', async () => {
+            await this.gameStateManager.soundManager.startAudioContext();
+            await this.gameStateManager.soundManager.loadMarqueeMusic();
+            this.gameStateManager.soundManager.playMarqueeMusic();
+        }, { once: true });
     }
 
     gameStart(): void {
@@ -184,6 +191,8 @@ export class MarqueeState implements IGameState {
                 this.scene.remove(child);
             }
         });
+
+        this.gameStateManager.soundManager.stopMarqueeMusic();
     }
 
     render(renderer: THREE.WebGLRenderer): void {

@@ -17,7 +17,8 @@
   "license": "ISC",
   "dependencies": {
     "@dimforge/rapier3d": "^0.15.0",
-    "three": "^0.162.0"
+    "three": "^0.162.0",
+    "tone": "^15.0.4"
   },
   "devDependencies": {
     "@types/three": "^0.162.0",
