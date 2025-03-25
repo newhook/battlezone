@@ -78,21 +78,23 @@ export class Radar {
             }
             .radar-blip {
                 position: absolute;
-                width: 4px;
-                height: 4px;
+                width: 8px;
+                height: 8px;
                 background-color: #ff0000;
                 border-radius: 50%;
                 transform: translate(-50%, -50%);
+                box-shadow: 0 0 4px 2px rgba(255, 0, 0, 0.5);
             }
             .player-indicator {
                 position: absolute;
                 top: 50%;
                 left: 50%;
-                width: 6px;
-                height: 6px;
+                width: 10px;
+                height: 10px;
                 background-color: #00ff00;
                 border-radius: 50%;
                 transform: translate(-50%, -50%);
+                box-shadow: 0 0 4px 2px rgba(0, 255, 0, 0.5);
             }
             @keyframes radar-sweep {
                 from {
