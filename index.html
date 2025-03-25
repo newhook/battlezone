@@ -77,19 +77,28 @@
         <p>S/↓: Move Backward</p>
         <p>A/←: Turn Left</p>
         <p>D/→: Turn Right</p>
-        <p>Q: Rotate Turret Left</p>
-        <p>E: Rotate Turret Right</p>
+        <p>Mouse Movement: Rotate Turret</p>
+        <p>Q/E: Rotate Turret (alternate)</p>
         <p>Left Mouse Button/SPACE: Fire</p>
         <p>F: Toggle Fly Camera</p>
         <p>SHIFT+W: Toggle Wireframe Mode</p>
     </div>
-    
+
     <!-- Test if scripts are loading at all -->
     <script>
         console.log("Inline script executed");
         document.addEventListener('DOMContentLoaded', () => {
             console.log("DOMContentLoaded from inline script");
         });
+    </script>
+
+    <script>
+        document.addEventListener('click', () => {
+            const audioPrompt = document.getElementById('audio-prompt');
+            if (audioPrompt) {
+                audioPrompt.style.display = 'none';
+            }
+        }, { once: true });
     </script>
     
     <!-- Load the main entry point -->

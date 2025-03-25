@@ -217,9 +217,15 @@ export abstract class Tank implements Vehicle {
   }
 
   rotateTurret(direction: number): void {
+    // If direction is a small value (from mouse movement), use it directly as rotation amount
+    // If it's 1 or -1 (from keyboard), scale it for compatibility with old controls
+    let rotationAmount = Math.abs(direction) <= 0.1 
+      ? direction // Use mouse movement directly
+      : direction * 0.05; // Scale for keyboard controls (Q/E keys)
+    
     // Calculate new rotation
-    const newRotation = this.turretContainer.rotation.y + direction * 0.05;
-
+    const newRotation = this.turretContainer.rotation.y + rotationAmount;
+    
     // Limit rotation to ±45 degrees (±π/4 radians)
     const maxRotation = Math.PI / 4;
     this.turretContainer.rotation.y = Math.max(-maxRotation, Math.min(maxRotation, newRotation));

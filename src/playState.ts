@@ -34,6 +34,9 @@ export class PlayState implements IGameState {
     enemiesDefeated: number = 0;
     levelComplete: boolean = false;
 
+    // Add a property to track visible enemies for radar
+    private previousEnemyCount: number = 0;
+
     constructor(gameStateManager: GameStateManager) {
         // Create scene
         this.scene = new THREE.Scene();
@@ -61,6 +64,9 @@ export class PlayState implements IGameState {
 
         this.flyCamera = new FlyCamera(this.camera);
         this.radar = new Radar();
+        // Set sound manager in radar
+        const soundManager = this.gameStateManager.initSoundManager();
+        this.radar.setSoundManager(soundManager);
         this.radar.hide()
 
         this.createOrientationGuide(this.scene);
@@ -189,10 +195,14 @@ export class PlayState implements IGameState {
     }
 
     handleInput(input: InputState): void {
+        const soundManager = this.gameStateManager.initSoundManager();
         // Only process tank movement controls if not in fly mode
         if (!input.toggleFlyCamera) {
             if (input.forward) {
                 this.player.move(1);
+                soundManager.startMovementNoise();
+            } else {
+                soundManager.stopMovementNoise();
             }
             if (input.backward) {
                 this.player.move(-1);
@@ -203,14 +213,29 @@ export class PlayState implements IGameState {
             if (input.right) {
                 this.player.turn(-1);
             }
+            
+            // Use mouse movement for turret rotation instead of keys
+            if (input.mouseDeltaX !== 0) {
+                // Convert mouse movement to rotation amount with a sensitivity factor
+                const sensitivity = 0.01;
+                const rotationAmount = -input.mouseDeltaX * sensitivity;
+                this.player.rotateTurret(rotationAmount);
+                
+                // Reset the delta after using it to prevent continuous rotation
+                input.mouseDeltaX = 0;
+            }
+            
+            // Keep keyboard controls as fallback
             if (input.turretLeft) {
                 this.player.rotateTurret(1);
             }
             if (input.turretRight) {
                 this.player.rotateTurret(-1);
             }
+            
             if (input.fire) {
                 this.player.fire();
+                soundManager.playPlayerShoot();
             }
         }
 
@@ -289,7 +314,11 @@ export class PlayState implements IGameState {
         } else {
             this.updateCamera();
         }
+        
+        // Update radar and play ping sound only when new enemies appear
         this.radar.update(this.player, this.enemies);
+        
+        this.previousEnemyCount = this.enemies.length;
 
         // Check for level completion
         if (!this.levelComplete && this.enemies.length === 0) {
@@ -439,11 +468,14 @@ export class PlayState implements IGameState {
     private handleEnemyHit(enemyIndex: number, enemyPos: { x: number, y: number, z: number }): void {
         const enemy = this.enemies[enemyIndex];
 
+        const soundManager = this.gameStateManager.initSoundManager();
         // Apply damage and check if enemy is destroyed
         const isAlive = enemy.takeDamage(10);
         
         // Create hit explosion effect
         this.createExplosion(enemyPos);
+
+        soundManager.playHit();
 
         // Only remove the enemy if it's destroyed
         if (!isAlive) {
@@ -535,6 +567,7 @@ export class PlayState implements IGameState {
     private handlePlayerHit(): void {
         // Flash the player tank to indicate damage and check if destroyed
         const isAlive = this.player.takeDamage(10);
+        const soundManager = this.gameStateManager.initSoundManager();
         
         // Create explosion effect at the player's position
         const playerPos = this.player.body.translation();
@@ -542,6 +575,8 @@ export class PlayState implements IGameState {
         
         // Display health info
         this.showHealthNotification();
+        
+        soundManager.playHit();
         
         // Check if player is destroyed
         if (!isAlive) {
@@ -765,9 +800,11 @@ export class PlayState implements IGameState {
             toggleFlyCamera: false,
             wireframeToggle: false,
             turretLeft: false,
-            turretRight: false
+            turretRight: false,
+            mouseX: 0,
+            mouseDeltaX: 0
         };
-
+        
         // Key down handler
         const handleKeyDown = (event: KeyboardEvent) => {
             switch (event.code) {
@@ -807,7 +844,7 @@ export class PlayState implements IGameState {
                     break;
             }
         };
-
+        
         // Key up handler
         const handleKeyUp = (event: KeyboardEvent) => {
             switch (event.code) {
@@ -839,26 +876,35 @@ export class PlayState implements IGameState {
                 // We don't reset toggleFlyCamera on keyup as it's a toggle state
             }
         };
-
+        
         // Mouse button handlers
         const handleMouseDown = (event: MouseEvent) => {
             if (event.button === 0) { // Left mouse button
                 input.fire = true;
             }
         };
-
+        
         const handleMouseUp = (event: MouseEvent) => {
             if (event.button === 0) { // Left mouse button
                 input.fire = false;
             }
         };
 
+        // Mouse movement handler
+        const handleMouseMove = (event: MouseEvent) => {
+            // Calculate delta X (how much the mouse moved horizontally since last frame)
+            const deltaX = event.movementX || 0;
+            input.mouseDeltaX = deltaX;
+            input.mouseX = event.clientX;
+        };
+        
         // Add event listeners
         window.addEventListener('keydown', handleKeyDown);
         window.addEventListener('keyup', handleKeyUp);
         window.addEventListener('mousedown', handleMouseDown);
         window.addEventListener('mouseup', handleMouseUp);
-
+        window.addEventListener('mousemove', handleMouseMove);
+        
         return input;
     }
 

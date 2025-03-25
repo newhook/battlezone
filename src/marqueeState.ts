@@ -134,6 +134,7 @@ export class MarqueeState implements IGameState {
 
         // Add event listener for space key
         document.addEventListener('keydown', this.keydownHandler);
+
     }
 
     gameStart(): void {
@@ -184,6 +185,8 @@ export class MarqueeState implements IGameState {
                 this.scene.remove(child);
             }
         });
+
+        this.gameStateManager.soundManager.stopMarqueeMusic();
     }
 
     render(renderer: THREE.WebGLRenderer): void {

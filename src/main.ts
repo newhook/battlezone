@@ -27,6 +27,7 @@ async function init() {
 
   // Initialize game state manager
   gameStateManager = new GameStateManager();
+
   // Make gameStateManager accessible globally
   (window as any).gameStateManager = gameStateManager;
 
