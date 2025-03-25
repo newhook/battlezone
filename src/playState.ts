@@ -213,12 +213,26 @@ export class PlayState implements IGameState {
             if (input.right) {
                 this.player.turn(-1);
             }
+            
+            // Use mouse movement for turret rotation instead of keys
+            if (input.mouseDeltaX !== 0) {
+                // Convert mouse movement to rotation amount with a sensitivity factor
+                const sensitivity = 0.01;
+                const rotationAmount = -input.mouseDeltaX * sensitivity;
+                this.player.rotateTurret(rotationAmount);
+                
+                // Reset the delta after using it to prevent continuous rotation
+                input.mouseDeltaX = 0;
+            }
+            
+            // Keep keyboard controls as fallback
             if (input.turretLeft) {
                 this.player.rotateTurret(1);
             }
             if (input.turretRight) {
                 this.player.rotateTurret(-1);
             }
+            
             if (input.fire) {
                 this.player.fire();
                 soundManager.playPlayerShoot();
@@ -786,9 +800,11 @@ export class PlayState implements IGameState {
             toggleFlyCamera: false,
             wireframeToggle: false,
             turretLeft: false,
-            turretRight: false
+            turretRight: false,
+            mouseX: 0,
+            mouseDeltaX: 0
         };
-
+        
         // Key down handler
         const handleKeyDown = (event: KeyboardEvent) => {
             switch (event.code) {
@@ -828,7 +844,7 @@ export class PlayState implements IGameState {
                     break;
             }
         };
-
+        
         // Key up handler
         const handleKeyUp = (event: KeyboardEvent) => {
             switch (event.code) {
@@ -860,26 +876,35 @@ export class PlayState implements IGameState {
                 // We don't reset toggleFlyCamera on keyup as it's a toggle state
             }
         };
-
+        
         // Mouse button handlers
         const handleMouseDown = (event: MouseEvent) => {
             if (event.button === 0) { // Left mouse button
                 input.fire = true;
             }
         };
-
+        
         const handleMouseUp = (event: MouseEvent) => {
             if (event.button === 0) { // Left mouse button
                 input.fire = false;
             }
         };
 
+        // Mouse movement handler
+        const handleMouseMove = (event: MouseEvent) => {
+            // Calculate delta X (how much the mouse moved horizontally since last frame)
+            const deltaX = event.movementX || 0;
+            input.mouseDeltaX = deltaX;
+            input.mouseX = event.clientX;
+        };
+        
         // Add event listeners
         window.addEventListener('keydown', handleKeyDown);
         window.addEventListener('keyup', handleKeyUp);
         window.addEventListener('mousedown', handleMouseDown);
         window.addEventListener('mouseup', handleMouseUp);
-
+        window.addEventListener('mousemove', handleMouseMove);
+        
         return input;
     }
 
