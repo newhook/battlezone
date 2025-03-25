@@ -98,6 +98,12 @@ export class Radar {
 
     hide() : void {
         this.element.style.display = 'none';
+
+        // Remove all enemy blips from the radar
+        const blips = this.element.getElementsByClassName('radar-blip');
+        while (blips.length > 0) {
+            blips[0].remove();
+        }
     }
 
     show() : void {
@@ -144,17 +150,5 @@ export class Radar {
             
             this.element.appendChild(blip);
         });
-    }
-
-    /**
-     * Reset the radar by removing all enemy blips
-     * Called when exiting the play state to clean up
-     */
-    reset(): void {
-        // Remove all enemy blips from the radar
-        const blips = this.element.getElementsByClassName('radar-blip');
-        while (blips.length > 0) {
-            blips[0].remove();
-        }
     }
 }
