@@ -13,6 +13,7 @@ export interface Vehicle extends GameObject {
   move: (direction: number) => void;
   turn: (direction: number) => void;
   fire: () => void;
+  takeDamage(amount: number): boolean;
   rotateTurret: (direction: number) => void;
   canFire: boolean;
   lastFired: number;

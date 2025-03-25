@@ -1,9 +1,12 @@
 import { Vehicle } from './types';
+import { SoundManager } from './soundManager';
 
 export class Radar {
     private element!: HTMLElement; // Using definite assignment assertion
     private maxDistance: number = 200;
     private radarRadius: number = 100;
+    private trackedEnemies: Map<Vehicle, HTMLElement> = new Map(); // Track enemies and their corresponding blip elements
+    private soundManager?: SoundManager;
 
     constructor() {
         // Check if radar already exists before creating a new one
@@ -14,6 +17,11 @@ export class Radar {
             this.setupRadarElement();
         }
         this.setupStyles();
+    }
+
+    // Set sound manager reference
+    setSoundManager(soundManager: SoundManager): void {
+        this.soundManager = soundManager;
     }
 
     private setupRadarElement() {
@@ -99,11 +107,9 @@ export class Radar {
     hide() : void {
         this.element.style.display = 'none';
 
-        // Remove all enemy blips from the radar
-        const blips = this.element.getElementsByClassName('radar-blip');
-        while (blips.length > 0) {
-            blips[0].remove();
-        }
+        // Clear all tracked enemies when hiding the radar
+        this.clearAllBlips();
+        this.trackedEnemies.clear();
     }
 
     show() : void {
@@ -111,44 +117,84 @@ export class Radar {
     }
 
     update(player: Vehicle, enemies: Vehicle[]) {
-        // Remove old blips
-        const oldBlips = this.element.getElementsByClassName('radar-blip');
-        while (oldBlips.length > 0) {
-            oldBlips[0].remove();
-        }
-
         // Get player position and rotation
         const playerPos = player.mesh.position;
         const playerRotation = player.mesh.rotation.y;
-
-        // Add blips for each enemy
+        
+        // Track which enemies are now visible
+        const currentlyVisibleEnemies = new Set<Vehicle>();
+        let newEnemiesDetected = false;
+        
+        // Add or update blips for each enemy in range
         enemies.forEach(enemy => {
             // Calculate relative position
             const relativeX = enemy.mesh.position.x - playerPos.x;
             const relativeZ = enemy.mesh.position.z - playerPos.z;
-
-            // Convert to radar coordinates (rotate based on player orientation)
+            // Calculate distance
             const distance = Math.sqrt(relativeX * relativeX + relativeZ * relativeZ);
+            
+            // Skip enemies that are beyond the max distance
+            if (distance > this.maxDistance) {
+                // If this enemy was previously tracked, we need to remove it
+                if (this.trackedEnemies.has(enemy)) {
+                    const blip = this.trackedEnemies.get(enemy)!;
+                    blip.remove();
+                    this.trackedEnemies.delete(enemy);
+                }
+                return;
+            }
+            
+            // Mark this enemy as currently visible
+            currentlyVisibleEnemies.add(enemy);
+            
+            // Check if this enemy is already being tracked
+            if (!this.trackedEnemies.has(enemy)) {
+                // This is a new enemy in radar range
+                newEnemiesDetected = true;
+                
+                // Create blip element
+                const blip = document.createElement('div');
+                blip.className = 'radar-blip';
+                this.element.appendChild(blip);
+                
+                // Add to tracked enemies
+                this.trackedEnemies.set(enemy, blip);
+            }
+            
+            // Get the blip element (either existing or newly created)
+            const blip = this.trackedEnemies.get(enemy)!;
+            
+            // Update blip position
             const angle = Math.atan2(relativeZ, relativeX) - playerRotation;
-            
-            // Scale distance to radar size
-            const scaledDistance = Math.min(distance, this.maxDistance) * (this.radarRadius / this.maxDistance);
-            
-            // Calculate radar position
+            const scaledDistance = distance * (this.radarRadius / this.maxDistance);
             const radarX = Math.cos(angle) * scaledDistance + this.radarRadius;
             const radarY = Math.sin(angle) * scaledDistance + this.radarRadius;
-
-            // Create blip element
-            const blip = document.createElement('div');
-            blip.className = 'radar-blip';
+            
             blip.style.left = `${radarX}px`;
             blip.style.top = `${radarY}px`;
             
-            // Add distance-based opacity
+            // Update distance-based opacity
             const opacity = 1 - (distance / this.maxDistance);
             blip.style.opacity = Math.max(0.3, opacity).toString();
-            
-            this.element.appendChild(blip);
+        });
+        
+        // Remove blips for enemies that are no longer visible
+        this.trackedEnemies.forEach((blip, enemy) => {
+            if (!currentlyVisibleEnemies.has(enemy)) {
+                blip.remove();
+                this.trackedEnemies.delete(enemy);
+            }
+        });
+        
+        // Play radar ping sound only when new enemies are detected
+        if (newEnemiesDetected && this.soundManager) {
+            this.soundManager.playRadarPing();
+        }
+    }
+    
+    private clearAllBlips(): void {
+        this.trackedEnemies.forEach((blip) => {
+            blip.remove();
         });
     }
 }

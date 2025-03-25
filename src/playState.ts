@@ -64,6 +64,9 @@ export class PlayState implements IGameState {
 
         this.flyCamera = new FlyCamera(this.camera);
         this.radar = new Radar();
+        // Set sound manager in radar
+        const soundManager = this.gameStateManager.initSoundManager();
+        this.radar.setSoundManager(soundManager);
         this.radar.hide()
 
         this.createOrientationGuide(this.scene);
@@ -192,13 +195,14 @@ export class PlayState implements IGameState {
     }
 
     handleInput(input: InputState): void {
+        const soundManager = this.gameStateManager.initSoundManager();
         // Only process tank movement controls if not in fly mode
         if (!input.toggleFlyCamera) {
             if (input.forward) {
                 this.player.move(1);
-                this.gameStateManager.soundManager.startMovementNoise();
+                soundManager.startMovementNoise();
             } else {
-                this.gameStateManager.soundManager.stopMovementNoise();
+                soundManager.stopMovementNoise();
             }
             if (input.backward) {
                 this.player.move(-1);
@@ -217,7 +221,7 @@ export class PlayState implements IGameState {
             }
             if (input.fire) {
                 this.player.fire();
-                this.gameStateManager.soundManager.playPlayerShoot();
+                soundManager.playPlayerShoot();
             }
         }
 
@@ -300,10 +304,6 @@ export class PlayState implements IGameState {
         // Update radar and play ping sound only when new enemies appear
         this.radar.update(this.player, this.enemies);
         
-        // Play radar ping sound only when enemy count increases
-        if (this.enemies.length > this.previousEnemyCount) {
-            this.gameStateManager.soundManager.playRadarPing();
-        }
         this.previousEnemyCount = this.enemies.length;
 
         // Check for level completion
@@ -454,13 +454,14 @@ export class PlayState implements IGameState {
     private handleEnemyHit(enemyIndex: number, enemyPos: { x: number, y: number, z: number }): void {
         const enemy = this.enemies[enemyIndex];
 
+        const soundManager = this.gameStateManager.initSoundManager();
         // Apply damage and check if enemy is destroyed
         const isAlive = enemy.takeDamage(10);
         
         // Create hit explosion effect
         this.createExplosion(enemyPos);
 
-        this.gameStateManager.soundManager.playHit();
+        soundManager.playHit();
 
         // Only remove the enemy if it's destroyed
         if (!isAlive) {
@@ -552,6 +553,7 @@ export class PlayState implements IGameState {
     private handlePlayerHit(): void {
         // Flash the player tank to indicate damage and check if destroyed
         const isAlive = this.player.takeDamage(10);
+        const soundManager = this.gameStateManager.initSoundManager();
         
         // Create explosion effect at the player's position
         const playerPos = this.player.body.translation();
@@ -560,7 +562,7 @@ export class PlayState implements IGameState {
         // Display health info
         this.showHealthNotification();
         
-        this.gameStateManager.soundManager.playHit();
+        soundManager.playHit();
         
         // Check if player is destroyed
         if (!isAlive) {

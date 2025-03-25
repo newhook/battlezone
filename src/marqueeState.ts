@@ -79,7 +79,6 @@ export class MarqueeState implements IGameState {
                 this.gameStateManager.switchToPlay();
             }
         };
-        this.gameStateManager.soundManager.playMarqueeMusic();
     }
 
     update(deltaTime: number): void {
