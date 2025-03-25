@@ -28,10 +28,6 @@ async function init() {
   // Initialize game state manager
   gameStateManager = new GameStateManager();
 
-  // Start AudioContext and load marquee music
-  await gameStateManager.soundManager.startAudioContext();
-  await gameStateManager.soundManager.loadMarqueeMusic();
-
   // Make gameStateManager accessible globally
   (window as any).gameStateManager = gameStateManager;
 

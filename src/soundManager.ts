@@ -10,6 +10,7 @@ export class SoundManager {
   private marqueeMusic: Tone.Player;
 
   constructor() {
+    console.log('sound manager');
     // Initialize synths and effects
     this.playerShootSynth = new Tone.Synth().toDestination();
     this.enemyShootSynth = new Tone.Synth().toDestination();
@@ -23,9 +24,11 @@ export class SoundManager {
 
     // Marquee music setup
     this.marqueeMusic = new Tone.Player('/marquee-music.mp3').toDestination();
+    this.marqueeMusic.autostart = true
   }
 
   async startAudioContext() {
+    console.log("startAudioContext");
     await Tone.start();
     console.log('AudioContext started');
   }
@@ -52,6 +55,7 @@ export class SoundManager {
   }
 
   playRadarPing() {
+    console.log("playRadarPing");
     this.radarPingSynth.triggerAttackRelease('A5', '32n');
   }
 

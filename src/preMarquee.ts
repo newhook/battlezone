@@ -1,8 +1,8 @@
 import * as THREE from 'three';
-import { PreMarqueeState } from './gameStates';
+import { IGameState } from './gameStates';
 import { GameStateManager } from './gameStateManager';
 
-export class PreMarquee implements PreMarqueeState {
+export class PreMarquee implements IGameState {
     private gameStateManager: GameStateManager;
     private scene: THREE.Scene;
     private camera: THREE.PerspectiveCamera;
@@ -35,8 +35,13 @@ export class PreMarquee implements PreMarqueeState {
         welcomeElement.innerHTML = 'Welcome to Battlezone!<br>Click to Start';
         document.body.appendChild(welcomeElement);
 
-        // Add click listener to transition to marquee state
-        document.addEventListener('click', this.startMarquee, { once: true });
+        // Start AudioContext and load marquee music on user interaction
+        document.addEventListener('click', async () => {
+            const soundManager = gameStateManager.initSoundManager();
+            await soundManager.startAudioContext();
+            await soundManager.loadMarqueeMusic();
+            this.startMarquee();
+        }, { once: true });
     }
 
     private startMarquee = () => {
@@ -52,11 +57,11 @@ export class PreMarquee implements PreMarqueeState {
     }
 
     onEnter(): void {
-        console.log('Entering PreMarquee State');
     }
 
     onExit(): void {
-        console.log('Exiting PreMarquee State');
+        const soundManager = this.gameStateManager.initSoundManager();
+        soundManager.stopMarqueeMusic();
     }
 
     render(renderer: THREE.WebGLRenderer): void {

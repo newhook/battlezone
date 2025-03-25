@@ -34,6 +34,9 @@ export class PlayState implements IGameState {
     enemiesDefeated: number = 0;
     levelComplete: boolean = false;
 
+    // Add a property to track visible enemies for radar
+    private previousEnemyCount: number = 0;
+
     constructor(gameStateManager: GameStateManager) {
         // Create scene
         this.scene = new THREE.Scene();
@@ -293,12 +296,15 @@ export class PlayState implements IGameState {
         } else {
             this.updateCamera();
         }
+        
+        // Update radar and play ping sound only when new enemies appear
         this.radar.update(this.player, this.enemies);
-
-        // Play radar ping sound when a new blip appears
-        if (this.enemies.length > 0) {
+        
+        // Play radar ping sound only when enemy count increases
+        if (this.enemies.length > this.previousEnemyCount) {
             this.gameStateManager.soundManager.playRadarPing();
         }
+        this.previousEnemyCount = this.enemies.length;
 
         // Check for level completion
         if (!this.levelComplete && this.enemies.length === 0) {

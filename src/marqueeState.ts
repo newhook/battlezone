@@ -79,6 +79,7 @@ export class MarqueeState implements IGameState {
                 this.gameStateManager.switchToPlay();
             }
         };
+        this.gameStateManager.soundManager.playMarqueeMusic();
     }
 
     update(deltaTime: number): void {
@@ -135,12 +136,6 @@ export class MarqueeState implements IGameState {
         // Add event listener for space key
         document.addEventListener('keydown', this.keydownHandler);
 
-        // Start AudioContext and load marquee music on user interaction
-        document.addEventListener('click', async () => {
-            await this.gameStateManager.soundManager.startAudioContext();
-            await this.gameStateManager.soundManager.loadMarqueeMusic();
-            this.gameStateManager.soundManager.playMarqueeMusic();
-        }, { once: true });
     }
 
     gameStart(): void {
