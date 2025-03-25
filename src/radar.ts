@@ -1,5 +1,6 @@
 import { Vehicle } from './types';
 import { SoundManager } from './soundManager';
+import * as THREE from 'three';
 
 export class Radar {
     private element!: HTMLElement; // Using definite assignment assertion
@@ -117,9 +118,8 @@ export class Radar {
     }
 
     update(player: Vehicle, enemies: Vehicle[]) {
-        // Get player position and rotation
+        // Get player position
         const playerPos = player.mesh.position;
-        const playerRotation = player.mesh.rotation.y;
         
         // Track which enemies are now visible
         const currentlyVisibleEnemies = new Set<Vehicle>();
@@ -127,9 +127,10 @@ export class Radar {
         
         // Add or update blips for each enemy in range
         enemies.forEach(enemy => {
-            // Calculate relative position
+            // Calculate relative position in world coordinates
             const relativeX = enemy.mesh.position.x - playerPos.x;
             const relativeZ = enemy.mesh.position.z - playerPos.z;
+            
             // Calculate distance
             const distance = Math.sqrt(relativeX * relativeX + relativeZ * relativeZ);
             
@@ -164,11 +165,30 @@ export class Radar {
             // Get the blip element (either existing or newly created)
             const blip = this.trackedEnemies.get(enemy)!;
             
-            // Update blip position
-            const angle = Math.atan2(relativeZ, relativeX) - playerRotation;
+            // Create a vector representing the direction to the enemy in XZ plane
+            const directionToEnemy = new THREE.Vector2(relativeX, relativeZ);
+            
+            // Create a vector representing the player's forward direction
+            // In THREE.js, the default forward is negative Z axis
+            // We use the Y-rotation (around vertical axis) to create this vector
+            const forwardDir = new THREE.Vector2(0, -1).rotateAround(new THREE.Vector2(0, 0), player.mesh.rotation.y);
+            
+            // Calculate angle between forward direction and direction to enemy
+            let angle = forwardDir.angle() - directionToEnemy.angle();
+            
+            // Normalize angle
+            if (angle > Math.PI) angle -= Math.PI * 2;
+            if (angle < -Math.PI) angle += Math.PI * 2;
+            
+            // Scale distance to radar size
             const scaledDistance = distance * (this.radarRadius / this.maxDistance);
-            const radarX = Math.cos(angle) * scaledDistance + this.radarRadius;
-            const radarY = Math.sin(angle) * scaledDistance + this.radarRadius;
+            
+            // Calculate radar position
+            // Center of radar is (radarRadius, radarRadius)
+            // Forward (negative angle) should be top of radar
+            // Positive X on radar is to the right (90 degrees clockwise from top)
+            const radarX = this.radarRadius + Math.sin(angle) * scaledDistance;
+            const radarY = this.radarRadius - Math.cos(angle) * scaledDistance;
             
             blip.style.left = `${radarX}px`;
             blip.style.top = `${radarY}px`;
