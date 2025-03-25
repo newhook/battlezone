@@ -184,13 +184,16 @@ export class Radar {
             
             // Calculate 2D distance and angle in local space
             const localDistance2D = Math.sqrt(localX * localX + localZ * localZ);
+            if (localDistance2D === 0) return; // Avoid division by zero
+            
             const normalizedX = localX / localDistance2D;
             const normalizedZ = localZ / localDistance2D;
             
             // Calculate radar position
             // Forward is top of radar (negative Z in local tank space)
             // Right is right side of radar (positive X in local tank space)
-            const radarX = this.radarRadius + normalizedX * scaledDistance;
+            // NOTE: We need to negate the X coordinate to correct left-right swapping
+            const radarX = this.radarRadius - normalizedX * scaledDistance;
             const radarY = this.radarRadius - normalizedZ * scaledDistance;
             
             blip.style.left = `${radarX}px`;
