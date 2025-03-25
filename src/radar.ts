@@ -6,7 +6,13 @@ export class Radar {
     private radarRadius: number = 100;
 
     constructor() {
-        this.setupRadarElement();
+        // Check if radar already exists before creating a new one
+        const existingRadar = document.getElementById('radar');
+        if (existingRadar) {
+            this.element = existingRadar as HTMLElement;
+        } else {
+            this.setupRadarElement();
+        }
         this.setupStyles();
     }
 
@@ -138,5 +144,17 @@ export class Radar {
             
             this.element.appendChild(blip);
         });
+    }
+
+    /**
+     * Reset the radar by removing all enemy blips
+     * Called when exiting the play state to clean up
+     */
+    reset(): void {
+        // Remove all enemy blips from the radar
+        const blips = this.element.getElementsByClassName('radar-blip');
+        while (blips.length > 0) {
+            blips[0].remove();
+        }
     }
 }

@@ -737,7 +737,7 @@ export class PlayState implements IGameState {
         
         if (fpsElement) fpsElement.style.opacity = '0';
         if (scoreElement) scoreElement.style.opacity = '0';
-        if (instructionsElement) scoreElement.style.opacity = '0';
+        if (instructionsElement) instructionsElement.style.opacity = '0';
         if (coordDisplay) coordDisplay.style.opacity = '0';
         if (healthDisplay) {
             healthDisplay.style.opacity = '0';
@@ -745,6 +745,9 @@ export class PlayState implements IGameState {
                 if (healthDisplay.parentNode) healthDisplay.parentNode.removeChild(healthDisplay);
             }, 500);
         }
+        
+        // Hide and reset the radar
+        this.radar.hide();
         
         // Handle any cleanup of game visuals
         // Remove any on-screen feedback elements
