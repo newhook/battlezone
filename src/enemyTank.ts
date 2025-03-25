@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Tank } from './tank';
 import { PlayState } from './playState';
+import { Projectile, ProjectileSource } from './projectile';
 
 export class EnemyTank extends Tank {
   targetPosition: THREE.Vector3 | null = null;
@@ -16,6 +17,10 @@ export class EnemyTank extends Tank {
   playerLastKnownPosition: THREE.Vector3 | null = null;
   hasLineOfSight: boolean = false;
   trackingPlayer: boolean = false;
+  
+  // New properties for varied targeting
+  accuracy: number = 0.8; // Base accuracy (0-1), will be randomized per tank
+  maxInaccuracy: number = 0.12; // Maximum inaccuracy in radians (about 7 degrees)
 
   constructor(playState : PlayState, position: THREE.Vector3) {
     super(playState, position, 0xff0000); // Call base class constructor with red color
@@ -26,6 +31,10 @@ export class EnemyTank extends Tank {
     this.detectionRange = 500;
     this.firingRange = 30;
     this.hitpoints = 10; // Enemies have fewer hitpoints than the player
+    
+    // Randomize accuracy for each tank to create variety
+    // Some tanks will be more accurate than others
+    this.accuracy = 0.7 + Math.random() * 0.25; // Between 0.7 and 0.95
   }
 
   calculateTurnDirection(forward: THREE.Vector3, targetDirection: THREE.Vector3): number {
@@ -213,6 +222,76 @@ export class EnemyTank extends Tank {
         this.fire();
       }
     }
+  }
+
+  // Override the fire method to add inaccuracy
+  fire(): void {
+    if (!this.canFire) return;
+
+    // Calculate the cannon tip position in world space
+    const cannonWorldPosition = new THREE.Vector3();
+    this.cannonMesh.getWorldPosition(cannonWorldPosition);
+
+    // Calculate forward direction based on turret's rotation
+    const forward = new THREE.Vector3(0, 0, 1);
+    const turretWorldQuaternion = new THREE.Quaternion();
+    this.turretContainer.getWorldQuaternion(turretWorldQuaternion);
+    forward.applyQuaternion(turretWorldQuaternion);
+    forward.normalize();
+
+    // Only add inaccuracy to enemy tanks (not the player)
+    if (this instanceof EnemyTank) {
+      // Calculate distance-based accuracy reduction
+      const playerPosition = this.state.player.mesh.position;
+      const distanceToPlayer = cannonWorldPosition.distanceTo(playerPosition);
+      const normalizedDistance = Math.min(distanceToPlayer / this.firingRange, 1);
+      
+      // As distance increases, accuracy decreases
+      const distanceFactor = 1 - (normalizedDistance * 0.5);
+      const effectiveAccuracy = this.accuracy * distanceFactor;
+      
+      // Calculate inaccuracy in radians
+      const inaccuracy = (1 - effectiveAccuracy) * this.maxInaccuracy;
+      
+      // Add random deviation to firing direction
+      const deviation = new THREE.Euler(
+        (Math.random() - 0.5) * inaccuracy,  // Pitch
+        (Math.random() - 0.5) * inaccuracy,  // Yaw
+        0                                    // No roll
+      );
+      
+      // Apply deviation to forward direction
+      forward.applyEuler(deviation);
+    }
+
+    // Position the projectile at the tip of the cannon
+    const cannonTip = cannonWorldPosition.clone().add(forward.clone().multiplyScalar(1.5));
+
+    // Get tank's current velocity to add to projectile
+    const tankVel = this.body.linvel();
+    const initialVelocity = new THREE.Vector3(tankVel.x, tankVel.y, tankVel.z);
+
+    // Create new projectile using the Projectile class with modified direction
+    const projectile = new Projectile(
+      this.state,
+      cannonTip,
+      forward.clone(),
+      initialVelocity,
+      ProjectileSource.ENEMY
+    );
+
+    // Add to physics world
+    this.state.physicsWorld.addBody(projectile);
+
+    // Add projectile to PlayState's projectiles array
+    this.state.projectiles.push(projectile);
+
+    // Set cooldown
+    this.canFire = false;
+    this.lastFired = Date.now();
+    setTimeout(() => {
+      this.canFire = true;
+    }, 500); // 500ms cooldown between shots
   }
 
   // Override takeDamage to add visual feedback specific to enemy tanks
